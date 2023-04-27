@@ -1,0 +1,3183 @@
+
+dim gbVA: gbVA = true
+public const kNO = False
+public const kYES = True
+public const kTRUE = True
+dim currentesignrole : currentesignrole=""
+public isalreadysigned : isalreadysigned = ""
+public isbulkapproval :  isbulkapproval="No"
+Dim NoofEntiesCanBeSelected
+Public intZoomLevel : intZoomLevel = 100
+Public Const OLECMDID_OPTICAL_ZOOM = 63
+Public Const OLECMDEXECOPT_DONTPROMPTUSER = 2
+
+
+'===================================================
+public const Group_TDAdmin = "QCAdmin"
+public const Group_ProjectLead = "Project Manager"
+
+public const Group_RA = "Requirement Author"
+public const Group_RSL = "Technical"
+public const Group_RSV = "Business"
+public const Group_SO = "System Owner"
+public const Group_Validation = "Validation"
+
+public const Group_TECH = "Technical"
+public const Group_BUS = "Business"
+public const Group_QA = "QA"
+public const Group_VAL = "Validation"
+
+public const Group_TestAuthor = "Test Designer"
+public const Group_TestPlanLead = "Test Designer"
+public const Group_VQ_Manager = "Validation Qualification Manager"
+
+
+public const Group_Tester = "Tester"
+public const Group_TestLabLead = "Test Set Designer"
+public const Group_Reviewer = "Reviewer"
+
+public const Group_DL = "Defect Lead"
+public const Group_DR = "Defect Resolver"
+public const Group_DM = "Defect Manager"
+
+
+public const Group_EApproveAdmin = "eApprove Administrator"
+
+public const DefaultApprovalsRequired = "Business,Technical,Validation"
+public const DefaultRunApprovalsRequired = "Reviewer"
+public const Group_DefectPostApprover = "Defect Closer"
+
+public const UDF_CurrentApproval = "Current Approvals"
+public const UDF_RequiredApproval = "Required Approvals"
+public const UDF_RejectionReason = "Rejection Reason"
+Public Const UDF_Signatures = "Signatures"
+Public Const Group_ProjectManagement = "Project Management"   'Added by MResult to send email notification for custom group
+
+
+public const Group_DA = "Defect Approver"
+
+Public const UDF_ApprovalDate =  "Approval Date"
+Dim CurrentSignDateTime : CurrentSignDateTime ="" 'Declared outside to have global scope for use in ApprovalDate
+Dim selectedApprovalType
+Dim ConfigUreLevels
+'=====================================================
+' Template_ActionCanExecute(ActionName)
+'
+' DESCRIPTION
+'   This is called by Quality Center when a button is executed.
+'   It's code will just forward the request to the Module specific function.
+'
+' INPUT
+' ActionName - Textual name of action that is trying to execute
+'
+' OUTPUT
+' Boolean - whether the Action can execute or not
+'      return True if action is allowed
+'      return False if action can't run
+'=====================================================
+Function Template_ActionCanExecute(ActionName)
+
+On Error Resume Next
+
+  select case ActiveModule
+         case "Requirements"
+              Template_ActionCanExecute = Template_HP_Requirements_ActionCanExecute(ActionName)
+         case "Test Plan"
+              Template_ActionCanExecute = Template_HP_TestPlan_ActionCanExecute(ActionName)
+         case "Test Runs"
+              Template_ActionCanExecute = Template_HP_TestRuns_ActionCanExecute(ActionName)
+         case "Test Lab"
+              Template_ActionCanExecute = Template_HP_TestLab_ActionCanExecute(ActionName)
+         case "Defects"
+              Template_ActionCanExecute = Template_HP_Defects_ActionCanExecute(ActionName)
+         'case "Business Components"
+             ' Template_ActionCanExecute = Template_HP_BusComp_ActionCanExecute(ActionName)
+         case "ManualRun"
+              Template_ActionCanExecute = Template_HP_ManualRun_ActionCanExecute(ActionName)
+         case "Management"
+              Template_ActionCanExecute = Template_Management_ActionCanExecute(ActionName)
+         Case "Test Resources"
+              Template_ActionCanExecute = Template_Resources_ActionCanExecute(ActionName)
+         Case "Business Components"
+              Template_ActionCanExecute = Template_Components_ActionCanExecute(ActionName)
+         Case "Analysis"
+              Template_ActionCanExecute = Template_Analysis_ActionCanExecute(ActionName)
+         Case "Business Models"
+             Template_ActionCanExecute = Template_BusinessModels_ActionCanExecute(ActionName)
+         Case "Releases"    'Added by MResult on Dec 9, 2021 for Training Videos & Screen Recorder
+              Template_ActionCanExecute = Template_Releases_ActionCanExecute(ActionName)
+         Case "Libraries"
+              Template_ActionCanExecute = Template_Libraries_ActionCanExecute(ActionName)
+         Case "Dashboard"
+              Template_ActionCanExecute = Template_Dashboard_ActionCanExecute(ActionName) 'Till here
+         case else
+             Template_ActionCanExecute = Template_DefaultRes
+  end select
+
+
+End Function 'Template_ActionCanExecute
+
+
+
+
+'=====================================================
+' Template_CanLogin(DomainName, ProjectName, UserName)
+'
+' DESCRIPTION
+'   This is called by Quality Center when a user is attempting to
+'   log into the system.
+'
+'   It will forward the call to the eApprove engine.
+'
+' INPUT
+' DomainName - The Domain of the project
+' ProjectName - The name of the Project
+' UserName - The name of the user that is logging into the systme.
+'
+' OUTPUT
+' Boolean - whether the Action can execute or not
+'      return True if action is allowed
+'      return False if action can't run
+'=====================================================
+Function Template_CanLogin(DomainName, ProjectName, UserName)
+     on error resume next
+    Call AddReqID_for_TestPlanModule
+   if   (User.IsInGroup("Deactivated Users")) Then
+        Template_CanLogin = False
+        msgbox "This UserName is added to Deactivated User Please Contact System Administrator" , 0 , "Operation Prevented"
+        Exit Function
+   else
+       Template_CanLogin = True
+   end if
+
+  Template_CanLogin = Template_DefaultRes
+End Function 'Template_CanLogin
+
+
+'=====================================================
+' Template_EnterModule
+'
+' DESCRIPTION
+'   This is called by Quality Center when a user is attempting to
+'   enter into a module.
+'
+' INPUT
+' N/A
+'
+' OUTPUT
+' N/A
+'=====================================================
+Sub Template_EnterModule
+
+  On Error Resume Next
+  call EnterModule
+  select case ActiveModule
+         case "Requirements"
+              call Template_HP_Requirements_EnterModule()
+         case "Test Plan"
+              call Template_HP_TestPlan_EnterModule()
+         case "Test Lab"
+         case "Defects"
+         case "ManualRun"
+              IsmanualRunwindowOpen = "Yes"
+              Actions.Action("TestRuns_Approval").Visible = False
+              call Template_HP_ManualRun_EnterModule()
+
+         case else
+  end select
+
+  On Error GoTo 0
+End Sub 'Template_EnterModule
+'========================================================================================================
+'Sub addReqID_for_TestPlanModule
+'Description
+'This is added to test if the Test Plan Module State exists, which it won't for a new user,
+' and then add the view definition to the user's sessions.
+'==========================================================================================================
+ Sub AddReqID_for_TestPlanModule
+
+    Set tdc = TDConnection
+    Set userset = tdc.UserSettings
+
+    ' Open category.
+    userset.Open ("TestPlanModule-00000000395028973")
+    userset.Refresh  ("TestPlanModule-00000000395028973")
+
+    if ((len(userset.value("ModuleState")) = 0)) then
+
+    ' Set a value in the open category.
+     userset.value("ModuleState") = "<State><StateParameters><Parameter><ParameterId><string>LAST_VIEW</string></ParameterId><ParameterValue><string>TREE</string>" & _
+    "</ParameterValue></Parameter><Parameter><ParameterId><string>ListConfigurationKey</string></ParameterId><ParameterValue><string>" & _
+    "&lt;Filter Entity=""test""&gt;&lt;Where /&gt;&lt;Sort /&gt;&lt;Grouping /&gt;&lt;TestsNotInAnyTestSet NotCovered=""False"" /&gt;" & _
+    "&lt;TestsWithNoRequirementCoverage NotCovered=""False"" /&gt;&lt;/Filter&gt;</string></ParameterValue></Parameter>" & _
+    "<Parameter><ParameterId><string>TREE_LAST_FOCUSSED_TYPE</string></ParameterId><ParameterValue><string>ITestFolder</string></ParameterValue></Parameter>" & _
+    "<Parameter><ParameterId><string>TREE_LAST_FOCUSSED_ID</string></ParameterId><ParameterValue><string>2</string></ParameterValue></Parameter>" & _
+    "<Parameter><ParameterId><string>TestPlanTreeIndicatorsVisibleKey</string></ParameterId><ParameterValue><string>True</string></ParameterValue></Parameter>" & _
+    "<Parameter><ParameterId><string>HP.ALM.QC.OTA.Entities.Api.IDesignStep_DESIGN_STEPS_LIST_CONFIGURATION</string></ParameterId><ParameterValue>" & _
+    "<string>&lt;Filter Entity=""design-step""&gt;&lt;Where /&gt;&lt;Sort /&gt;&lt;Grouping /&gt;&lt;/Filter&gt;</string></ParameterValue></Parameter>" & _
+    "<Parameter><ParameterId><string>HP.ALM.QC.OTA.Entities.Api.IDesignStep_DESIGN_STEPS_COLUMNS</string></ParameterId><ParameterValue><string>&lt;VisibleColumns&gt;" & _
+    "&lt;Column&gt;&lt;EntityType&gt;design-step&lt;/EntityType&gt;&lt;PhysicalFieldName&gt;DS_STEP_NAME&lt;/PhysicalFieldName&gt;&lt;Width&gt;100&lt;/Width&gt;&lt;/Column&gt;" & _
+    "&lt;Column&gt;&lt;EntityType&gt;design-step&lt;/EntityType&gt;&lt;PhysicalFieldName&gt;DS_DESCRIPTION&lt;/PhysicalFieldName&gt;&lt;Width&gt;250&lt;/Width&gt;&lt;/Column&gt;" & _
+    "&lt;Column&gt;&lt;EntityType&gt;design-step&lt;/EntityType&gt;&lt;PhysicalFieldName&gt;DS_EXPECTED&lt;/PhysicalFieldName&gt;&lt;Width&gt;250&lt;/Width&gt;&lt;/Column&gt;" & _
+    "&lt;Column&gt;&lt;EntityType&gt;design-step&lt;/EntityType&gt;&lt;PhysicalFieldName&gt;DS_USER_TEMPLATE_01&lt;/PhysicalFieldName&gt;&lt;Width&gt;75&lt;/Width&gt;&lt;/Column&gt;" & _
+    "&lt;/VisibleColumns&gt;</string></ParameterValue></Parameter><Parameter><ParameterId><string>TestConfigListConfigurationParameterKey</string></ParameterId><ParameterValue>" & _
+    "<string>&lt;Filter Entity=""test-config""&gt;&lt;Where /&gt;&lt;Sort /&gt;&lt;Grouping /&gt;&lt;/Filter&gt;</string></ParameterValue></Parameter></StateParameters></State>"
+    ' update the field
+    userset.Post
+
+   ' ModuleState = ""
+
+     ' If the Design Steps Columns view exists, check if the new column (DS_USER_01) is part of the view
+    elseif InStr(userset.value("ModuleState"),"DS_USER_TEMPLATE_01") = 0 then
+    ' insert the column into the view
+    ModuleState = Replace(userset.value("ModuleState"),"&lt;/VisibleColumns&gt;", _
+    "&lt;Column&gt;&lt;EntityType&gt;design-step&lt;/EntityType&gt;&lt;PhysicalFieldName&gt;DS_USER_TEMPLATE_01&lt;/PhysicalFieldName&gt;&lt;Width&gt;75&lt;/Width&gt;&lt;/Column&gt;"&_
+    "&lt;/VisibleColumns&gt;")
+   ' "&lt;Column&gt;&lt;EntityType&gt;design-step&lt;/EntityType&gt;&lt;PhysicalFieldName&gt;DS_USER_TEMPLATE_01&lt;/PhysicalFieldName")
+
+    userset.value("ModuleState") = ModuleState
+    userset.Post
+
+    ModuleState = ""
+
+    'else
+   ' msgbox "No update needed: " & instr(userset.value("ModuleState"),"DS_USER_TEMPLATE_01")
+
+    end if
+    userset.Post
+    userset.Refresh ("TestPlanModule-00000000395028973")
+    ' Close the category
+    userset.Close
+'END IF
+Set tdc = Nothing
+Set userset = Nothing
+  On Error GoTo 0
+End Sub
+
+
+'=====================================================
+' Template_DefaultRes
+'
+' DESCRIPTION
+'   This is called by Misc other modules.
+'   Currently will always return true.
+'
+' INPUT
+' N/A
+'
+' OUTPUT
+' Boolean - always returns true
+'=====================================================
+
+Function Template_DefaultRes
+  On Error Resume Next
+
+  Template_DefaultRes = True
+  On Error GoTo 0
+End Function 'Template_DefaultRes
+
+
+
+'=====================================================
+' Template_DialogBox(DialogBoxName, IsOpen)
+'
+' DESCRIPTION
+'   This is called by Quality Center when a dialog box is being
+'       opened or closed.
+'
+' INPUT
+' DialogBoxName - name of the DialogBox that is being opened or closed
+' IsOpen - True: Dialog is opening == False: Dialog is closing
+'
+' OUTPUT
+' N/A
+'=====================================================
+Sub Template_DialogBox(DialogBoxName, IsOpen)
+
+  'Use ActiveModule and ActiveDialogName to get
+  'the current context.
+  On Error Resume Next
+  select case ActiveModule
+         case "Requirements"
+              call Template_HP_Requirements_DialogBox(DialogBoxName, IsOpen)
+         case "Test Plan"
+              call Template_HP_TestPlan_DialogBox(DialogBoxName, IsOpen)
+         case "Test Lab"
+              call Template_HP_TestLab_DialogBox(DialogBoxName, IsOpen)
+         case "Defects"
+              call Template_HP_Defects_DialogBox(DialogBoxName, IsOpen)
+         case "Business Components"
+              'Do Nothing
+         case else
+              'Do Nothing
+  end select
+
+  On Error GoTo 0
+End Sub 'Template_DialogBox
+
+'=====================================================
+' Template_Attachment_CanDelete(Attachment)
+'
+' DESCRIPTION
+'   This is called by Quality Center when an Attachment is being
+'       deleted
+'
+' INPUT
+' DialogBoxName - name of the DialogBox that is being opened or closed
+' IsOpen - True: Dialog is opening == False: Dialog is closing
+'
+' OUTPUT
+' N/A
+'=====================================================
+Function Template_Attachment_CanDelete(Attachment)
+  'Use ActiveModule and ActiveDialogName to get
+  'the current context.
+  On Error Resume Next
+
+  'call Attachment_CanDelete(Attachment)
+  Template_Attachment_CanDelete = Template_DefaultRes
+  On Error GoTo 0
+End Function 'Template_Attachment_CanDelete
+
+
+
+'=====================================================
+' Template_CanLogout
+'
+' DESCRIPTION
+'   This is called by Quality Center when a user logs out
+'
+' INPUT
+' N/A
+
+' OUTPUT
+' N/A
+'=====================================================
+Function Template_CanLogout
+
+  ' Free eApprove resources
+  Set gobjEApprove = Nothing
+
+  Template_CanLogout = Template_DefaultRes
+
+End Function 'Template_CanLogout
+
+Sub Template_ExitModule
+  'Use ActiveModule and ActiveDialogName to get
+  'the current context.
+  On Error Resume Next
+
+  'call ExitModule
+  On Error GoTo 0
+End Sub
+
+Function Template_CanCustomize(DomainName, ProjectName, UserName)
+  On Error Resume Next
+
+  'call CanCustomize(DomainName, ProjectName, UserName)
+  Template_CanCustomize = Template_DefaultRes
+  On Error GoTo 0
+End Function
+
+Sub Template_Attachment_New(Attachment)
+  'Use ActiveModule and ActiveDialogName to get
+  'the current context.
+  On Error Resume Next
+
+  'call Attachment_New(Attachment)
+  On Error GoTo 0
+End Sub
+
+Function Template_Attachment_CanOpen(Attachment)
+  'Use ActiveModule and ActiveDialogName to get
+  'the current context.
+  On Error Resume Next
+
+  'call Attachment_CanOpen(Attachment)
+  Template_Attachment_CanOpen = Template_DefaultRes
+  On Error GoTo 0
+End Function
+
+
+
+
+
+
+Function stripHTML(strHTML)
+    'Strips the HTML tags from strHTML
+    Dim objRegExp, strOutput
+    Set objRegExp = New Regexp
+    objRegExp.IgnoreCase = True
+    objRegExp.Global = True
+    objRegExp.Pattern = "<(.|\n)+?>"
+    'Replace all line breaks with VB line breaks
+    strOutput = Replace(strHTML, "<br>", "<br>")    '''''''''
+    'Replace all HTML tag matches with the empty string
+    strOutput = objRegExp.Replace(strOutput, "")
+    'Replace all &lt;, &gt;, and &quot; with <, >, and "
+     strOutput = Replace(strOutput,  "&lt;",  "<")
+     strOutput = Replace(strOutput,  "&gt;",  ">")
+     strOutput = Replace(strOutput,  "&deg;",  "°")
+     strOutput = Replace(strOutput,  "&nbsp;",  " ")
+     strOutput = Replace(strOutput,  "&amp;",  "&")
+     strOutput = Replace(strOutput, "&quot;", Chr(34))
+
+
+    Set objRegExp = Nothing
+    if len(strOutput) = 0 then
+       strOutput = "-"
+    end if
+    stripHTML = strOutput    'Return the value of strOutput
+End Function
+
+Function Template_GetDetailsPageName(PageName,PageNum)
+  On Error Resume Next
+
+  'call GetDetailsPageName(PageName,PageNum)
+  On Error GoTo 0
+End Function
+
+
+'=====================================================
+' Display_ApprovalWindow
+'
+' DESCRIPTION
+'   This is the commom method called by ALM  when a user is attempting to Display Approval Status for Req/Test/Test lab/Defect/Run Modules
+' INPUT : Role, Previous status, EntityName,List of ApprovalStatus , List of Roles user Belongs to particulat entity
+' Display_ApprovalWindow("Requirement Author", "In Progress", "REQ", "Ready For Review","Requirement Author")
+' OUTPUT
+' String - Returns the selected Status, Role and Esignature signed Status
+
+'=====================================================
+
+Function Display_ApprovalWindow(role, prevStatus, entityName, strApprovalStatus,strApprovalRoles)
+
+ On Error Resume Next
+    Display_ApprovalWindow = "" & Chr(248)& "" & Chr(248)& ""
+    IF(TRIM(strApprovalStatus) = "") then
+       Exit FUnction
+    End if
+
+   'Added by MResult on April 22nd, 2022 to avoid Signature reset issue on Defect module when multiple approvers change the approval status concurrently
+   Dim errorLength
+   if entityName ="BUG" THEN
+   Set bugf = TDConnection.BugFactory
+   Set tdBug = bugF.Item(Bug_Fields.Field("BG_BUG_ID").Value)
+   Set tdBug.LockObject = True
+   errorLength = len("The Object is locked by: ")  +2
+   if tdBug.LockObject  = True Then
+   lockUser = Mid(err.description,errorLength)
+   msgbox "Currently the record is being approved by " & lockUser & ". Please try again later" ,48, "Operation Prevented"
+   Template_HP_Defects_ActionCanExecute = False
+   Exit Function
+   End if
+   End if 'Till here
+
+
+
+    'roleSharing = Instr(1, role, "Requirement Author") > 0     'Added by MResult on Feb 16th 2022 to fix rejection work rework issue
+      roleSharing = (CheckCurrentUserExistsInGroup(Group_RA) or CheckCurrentUserExistsInGroup(Group_DM) or CheckCurrentUserExistsInGroup(Group_TestAuthor)  or CheckCurrentUserExistsInGroup(Group_Tester) or    CheckCurrentUserExistsInGroup(Group_TestLabLead))
+      if (instr(UCASE(prevStatus),"REJECT") > 0) then
+       if roleSharing = True then
+       else
+        MsgBox "Operation Prevented : The User ID/Role does not have permission to change the approval status", 48 , "Operation Prevented"
+       Exit Function
+      End If
+      End if 'Till here
+
+        iCount = 1
+        strHTML = ""
+
+'If loop to check if  there are multiple Approval Status seperated  by a Pi Symbol to be Displayed on Approval Window
+
+
+      strHTML = "<table style='width:100%; font-size:13px ;' cellpadding='0'  cellspacing='0'>"
+         rbcount = 1
+         IF(InStr(strApprovalStatus, "" & Chr(248)& "") > 0) then
+            arrStatus = Split(strApprovalStatus, "" & Chr(248)& "")
+            iCount = UBound(arrStatus) + 1
+            For each status in arrStatus
+               strHTML = strHTML & "<tr><td align='left' valign='left' style='width:4%; padding-left:6px;'>&nbsp;&nbsp;<input type='radio' name='rbGroup' value='" &  status & "'  ID='strb" & rbcount & "' ></input></td>"
+
+               strHTML = strHTML & "<td style='width:95%;padding:3px' align='left'>" & "<Label OnClick='VBScript:rbClick.Value=" & rbcount & "' name ='lblclick' id ='lblclick" & rbcount & "'>" & status & "</Label>"  &  "</td></tr>"
+               rbcount = rbcount + 1
+             Next
+         else
+      strHTML = strHTML + " <tr><td align='left' valign='left' style='width:4%;padding-left:6px;'>&nbsp;&nbsp;<input type='radio' name='rbGroup' value='" &  strApprovalStatus & "' ID='strb" & rbcount & "'></input></td>"
+      strHTML = strHTML & "<td style='width:95%;padding:3px' align='left'>" & "<Label OnClick='VBScript:rbClick.Value=" & rbcount & "' name ='lblclick' id ='lblclick" & rbcount & "'>" & strApprovalStatus & "</Label>"  & "</td></tr>"
+         End if
+
+
+       strHTML = strHTML & "</table>"
+
+
+
+    'Design Starts : Creating  Display of Approval Window using IE Object
+
+         Dim objIE
+         Set objIE = CreateObject( "InternetExplorer.Application" )
+         set screen = ObjIE.Parent
+         w = screen.width
+         h = screen.height
+         objIE.Navigate "about:blank"
+
+         objIE.Document.Title = "Select Approval Status"
+         ObjIE.Silent= true
+         objIE.AddressBar = False
+         objIE.MenuBar = False
+         objIE.ToolBar = False
+         objIE.Resizable = False
+         objIE.StatusBar = False
+         objIE.Width = 360
+
+
+         'objIE.Document.Body.Style.BackgroundColor = "#F2F1F3"
+          objIE.Document.Body.Style.BackgroundColor = "#FFFFFF"
+          '?? Change for other windows as well
+         objIE.Document.Body.InnerHTML = "<table style='width:100%;table-layout:fixed; font-family:arial; ' cellpadding='0' cellspacing = '0'>"_
+         & "<tr><td valign='top' style='padding-top:5px;'>" & strHTML & "</td></tr>" _
+         & "<tr><td align='right' valign='bottom' style='padding-top:20px;'> " _
+         & "<input type='submit' tabindex ='1' id ='btnOK' value='OK' style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#ddd,#fff); width:75px; height:25px;' OnClick='VBScript:OK.Value=1'/><INPUT TYPE='hidden' ID='OK' NAME='OK' VALUE='0' />"_
+         & "&nbsp;<input type='submit' id='btnCancel' tabindex ='2' value='Cancel' style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#ddd,#fff); width:75px; height:25px;' OnClick='VBScript:Cancel.Value=1'/>" _
+         & "<INPUT TYPE='hidden' ID='Cancel' NAME='Cancel' VALUE='0'/>" _
+          & "<INPUT TYPE='hidden' ID='rbClick' NAME='RBCLICK' VALUE='0'/>" _
+         & "</td></tr></table>"
+
+
+        if( iCount > 1) and (iCount < 4) then
+            windowHeight =  135
+            windowHeight = windowHeight + (iCount * 12)
+        elseif( iCount >= 4)  then
+            windowHeight =  135
+            windowHeight = windowHeight + (iCount * 18)
+        else
+             windowHeight =  125
+        end if
+
+         objIE.Height = windowHeight
+
+         ' Center the dialog window on the screen
+         With objIE.Document.ParentWindow.Screen
+            objIE.Left = (.availWidth  - objIE.Width ) \ 2
+            objIE.Top  = (.availHeight - objIE.Height) \ 2
+         End With
+
+         top = objIE.Top
+         lft = objIE.Left
+         if CLng(lft) > 600 then
+           objIE.Left = 600
+         end if
+
+         if CLng(top) > 300 then
+            objIE.Top = 300
+         end if
+        objIE.Document.Body.Style.overflow = "hidden"
+        objIE.Visible = 1
+        'bDefectType = Bug_Fields.Field(UDF_DefectType).Value   'Commented by MResult on Oct 30th 2020 to fix IE 11 pop-up blocker issue
+        objIE.Document.GetElementById("btnOK").Disabled = True
+        objIE.ExecWB OLECMDID_OPTICAL_ZOOM, OLECMDEXECOPT_DONTPROMPTUSER, CLng(intZoomLevel), vbNull
+        objIE.document.parentwindow.focus
+        objIE.Document.GetElementById("btnCancel").Focus
+
+
+  x = 0
+  Do While x = 0
+    ' Wait till the OK button has been clicked
+     On Error Resume Next
+
+     Do While (Trim(objIE.Document.GetElementById("OK").Value) = 0 or Trim(objIE.Document.GetElementById("Cancel").Value) = 0)
+        if (Trim(objIE.Document.GetElementById("rbClick").Value) <> 0) then
+                     objIE.Document.GetElementById("strb" & Trim(objIE.Document.GetElementById("rbClick").Value)).Checked = true
+                     objIE.Document.GetElementById("rbClick").Value = 0
+           end if
+
+             if(iCount > 1) then
+                j=0
+                for each rb in objIE.Document.GetElementsByName("rbGroup").rbGroup
+                            'if(objIE.Document.GetElementsByName("rbGroup"&[j]).checked = true) then
+                            IF(rb.checked = true) Then
+
+
+                             objIE.Document.GetElementById("btnOK").Disabled = False
+                              objIE.Document.GetElementById("btnOK").Focus
+                             exit for
+                           end if
+                           j = j+1
+                        Next
+                else
+
+                      if(objIE.Document.GetElementsByName("rbGroup").rbGroup.Checked = true) then
+                          objIE.Document.GetElementById("btnOK").Disabled = False
+                          objIE.Document.GetElementById("btnOK").Focus
+                      end if
+                end if
+       if Err Then
+
+         objIE.Quit
+         Set objIE = Nothing
+         Exit Function
+
+       elseif Trim(objIE.Document.GetElementById("Cancel").Value) = 1 then
+
+         x = 1
+         objIE.Quit
+         Set objIE = Nothing
+         Exit Function
+
+       elseif Trim(objIE.Document.GetElementById("OK").Value) = 1 then
+
+         selectedStatus = ""
+         i=0
+         eSignRequired = false
+
+         if iCount > 1 then
+           for each rb in objIE.Document.GetElementsByName("rbGroup").rbGroup
+             'if objIE.Document.GetElementsByName("rbGroup"&[i]).checked = true then
+               IF(rb.checked = true) Then
+
+               'selectedStatus = objIE.Document.GetElementsByName("rbGroup"&[i]).value
+                selectedStatus = rb.value
+
+
+
+               exit for
+             end if
+
+             i = i + 1
+           next
+         else
+           if objIE.Document.GetElementsByName("rbGroup").rbGroup.Checked = true then
+             selectedStatus = objIE.Document.GetElementsByName("rbGroup").rbGroup.Value
+           end if
+         end if
+
+    if Trim(selectedStatus) <>""  Then
+       if UCASE(entityName) = "TEST_PLAN" then
+           if UCASE(selectedStatus) <> UCASE(ApprovalStat_ReqDraft) Then
+                           role = GetSelectedRole(selectedStatus)
+
+                            IsCalltotestpaased = GetCallToTestStatus(Test_Fields.Field("TS_TEST_ID").Value)
+                                    if selectedStatus = ApprovalStat_ReqRoutingForApproval and isbulkapproval="No" Then
+
+                                      If IsCalltotestpaased = "No" Then
+                                         objIE.Quit
+                                         Set objIE = Nothing
+                                         msgbox "One or more called tests are not approved. A test with un-approved 'Call-To' steps cannot be approved.",48,"Operation Prevented"
+                                         Template_HP_TestPlan_ActionCanExecute = FALSE
+
+                                         Exit Function
+                                      end if
+                                    End if
+                           isDoneApprovalOnce = CheckCurrentUserAlreadyApproved(role,Test_Fields.Field("Signatures").Value)
+'==============================================================================================================================================
+'Commented By bhavya for the ticket SD00227773 on 11/22/2016
+                          ' if UCASE(Test_Fields.Field("TS_RESPONSIBLE").Value) = UCASE(TDConnection.UserName) and isbulkapproval="No" and _
+                                   ' UCASE(selectedStatus) <> UCASE(ApprovalStat_ReqRoutingForApproval)  Then
+                                   ' msgbox "You are listed as an author/designer. An author/designer cannot approve/reject their own work.",vbCritical, "Operation Prevented"
+                                   ' Template_HP_TestPlan_ActionCanExecute = FALSE
+                                   ' x=1
+                                   ' objIE.Quit
+                                   ' Set objIE = Nothing
+                                   ' Exit Function
+                           'End if
+'==============================================================================================================================================
+                           if isDoneApprovalOnce = TRUE and isbulkapproval="No"  THEN
+                             Template_HP_TestPlan_ActionCanExecute = FALSE
+                             msgbox "User cannot have more than one approval role in a workflow." ,48, "Operation Prevented"
+                             isalreadysigned="Yes"
+                             objIE.Quit
+                             Set objIE = Nothing
+                             Exit Function
+                           elseif isbulkapproval="No" then
+                             isalreadysigned="No"
+
+                             eSignRequired = gTsUserDefinedActions.TestPlan_Is_eSignatureRequired(role, prevStatus, selectedStatus)
+                           else
+                             isalreadysigned="No"
+                           end if
+             end if
+
+       ELSEIF (UCASE(entityName) = "TEST_LAB") then
+             eSignRequired = false
+
+       ELSEIF (UCASE(entityName) = "TEST_RUN")  then
+'=====================================
+'added to differentiate bulk test runs with single approvals, the approval logic will be picked according to the module
+'===================================
+        if(CurrentRunTest <> "TestRun_Bulk_Approval") then
+            executionStatus = TRIM(Run_Fields.Field("RN_STATUS").Value)
+            IF UCASE(selectedStatus) = UCASE(ApprovalStat_ReqRoutingForApproval)  THEN
+
+                      IF  UCASE(executionStatus)= UCASE("Passed") OR  UCASE(executionStatus) = UCASE("Failed") THEN
+                      ELSE
+                         selectedStatus =""
+                         Display_ApprovalWindow = "" & Chr(248)& "" & Chr(248)& ""
+                         x=1
+                         objIE.Quit
+                         Set objIE = Nothing
+                         MsgBox "The execution status must be either Passed or failed.",48, "Operation Prevented"
+                      END IF
+            END IF
+
+                if  UCASE(selectedStatus)<> UCASE(ApprovalStat_ReqDraft) and (selectedStatus <> ApprovalStat_ReqRoutingForApproval) Then
+                          role = GetSelectedRole(selectedStatus)
+                          isDoneApprovalOnce = CheckCurrentUserAlreadyApprovedTestPlan(role,Run_Fields.Field(UDF_Signatures).Value)
+
+                            IF( isDoneApprovalOnce = TRUE)  Then
+                                objIE.Quit
+'==============================================================================================================================================
+'Commented By bhavya for the ticket SD00227773 on 11/22/2016
+                                'GetEndUserName = GetEndRunUser
+                                'If GetEndUserName = "Yes"  Then
+
+                                  ' msgbox "You are listed as a person that executed one or more steps in this Run.You are not allowed to approve these results.",48, "Operation Prevented"
+'==============================================================================================================================================
+                                if instr(CurrentApprovalStatus,"Reject") > 0 then
+                                       msgbox "You have already approved this item.",32, ""
+                                else
+                                     msgbox "You have already signed this item. You cannot sign the same item twice in a single workflow.",32, "Operation Prevented"
+                                end if
+
+
+                                    eSignRequired=false
+                                    isalreadysigned="Yes"
+                                    Display_ApprovalWindow = "" & Chr(248)& "" & Chr(248)& ""
+                                    x=1
+                                    Set objIE = Nothing
+                            else
+                                isalreadysigned="No"
+                                eSignRequired = gTrUserDefinedActions.TestRun_Is_eSignatureRequired(role, prevStatus, selectedStatus)
+                            END IF
+                else
+                        isalreadysigned="No"
+                        eSignRequired = gTrUserDefinedActions.TestRun_Is_eSignatureRequired(role, prevStatus, selectedStatus)
+                end if
+           ELSEIF(CurrentRunTest = "TestRun_Bulk_Approval") THEN
+               eSignRequired = gTrUserDefinedActions.TestRun_Is_eSignatureRequired(role, prevStatus, selectedStatus)
+           end if
+
+
+
+       ELSEIF (UCASE(entityName) = "REQ") then
+
+             if UCASE(selectedStatus) <> UCASE(ApprovalStat_ReqDraft) Then
+                           role = GetSelectedRole(selectedStatus)
+                           isDoneApprovalOnce = CheckCurrentUserAlreadyApproved(role,Req_Fields.Field("Signatures").Value)
+'==============================================================================================================================================
+'Commented By bhavya for the ticket SD00227773 on 11/22/2016
+                           'if UCASE(Req_Fields.Field("RQ_REQ_AUTHOR").Value) = UCASE(TDConnection.UserName) and isbulkapproval="No" and _
+                                   ' UCASE(selectedStatus) <> UCASE(ApprovalStat_ReqRoutingForApproval)  Then
+                                   ' msgbox "You are listed as an author/designer. An author/designer cannot approve/reject their own work.",vbCritical, "Operation Prevented"
+                                   ' Template_HP_Requirements_ActionCanExecute = FALSE
+                                    'x=1
+                                   ' objIE.Quit
+                                   ' Set objIE = Nothing
+                                   ' Exit Function
+                           'End if
+'==============================================================================================================================================
+
+                           if isDoneApprovalOnce = TRUE and isbulkapproval="No"  THEN
+                             Template_HP_Requirements_ActionCanExecute = FALSE
+                             msgbox "User cannot have more than one approval role in a workflow." ,48, "Operation Prevented"
+                             isalreadysigned="Yes"
+                           elseif isbulkapproval="No" then
+                             isalreadysigned="No"
+
+                             eSignRequired = gReqUserDefinedActions.Req_Is_eSignatureRequired(role, prevStatus, selectedStatus)
+                           else
+                             isalreadysigned="No"
+                           end if
+             end if
+
+           ELSEIF (UCASE(entityName) = "BUG") then
+             if bCurrentBugID = "" Then
+                   bCurrentBugID = Bug_Fields.Field("BG_BUG_ID").Value
+             end if
+             set BugItem = TDConnection.BugFactory.Item(bCurrentBugID)
+             isDoneApprovalOnce = CheckCurrentUserAlreadyApprovedTestPlan(role,TRIM(BugItem.Field(GetDBFieldName(UDF_Signatures,"BUG"))))
+            If Not(CheckCurrentUserExistsInGroup(Group_DM)) Then
+
+                  If (UCASE(BugItem.Field("BG_DETECTED_BY"))<> UCASE(TDConnection.UserName)) and _
+                     (UCASE(selectedStatus) = UCASE(ApprovalStat_DefectFixPassed) Or UCASE(selectedStatus) = UCASE(ApprovalStat_DefectFixFailed)) Then
+
+                     MsgBox "You are not listed as the defect author/detector." ,48, "Operation Prevented"
+                     x=1
+                     objIE.Quit
+                     Set objIE = Nothing
+                     Exit Function
+                  end if
+            End if
+
+          '  if isDoneApprovalOnce = TRUE  THEN
+           '    Template_HP_Defects_ActionCanExecute = FALSE
+            '   msgbox "User cannot have more than one approval role in a workflow." ,48, "Operation Prevented"
+            '   eSignRequired=false
+             '  isalreadysigned="Yes"
+            '   x=1
+           '    objIE.Quit
+             '  Set objIE = Nothing
+            '   Exit Function
+           ' end if
+
+             ' If (UCASE(BugItem.Field("BG_DETECTED_BY")) = UCASE(TDConnection.UserName)) and _
+             '      ((instr(UCASE(selectedStatus),"REJECTED") > 1) or (instr(UCASE(selectedStatus),"APPROVE") > 1)) Then
+
+            '   MsgBox "You are listed as the defect author/detector. An author cannot approve/reject their own work." ,48, "Operation Prevented"
+            '   x=1
+             '  objIE.Quit
+              ' Set objIE = Nothing
+              ' Exit Function
+
+           '  end if
+               isalreadysigned="No"
+               eSignRequired = gDefectUserDefinedActions.Bug_Is_eSignatureRequired(role, prevStatus, selectedStatus)
+           end if
+
+           x=1
+           objIE.Quit
+           Set objIE = Nothing
+
+           if eSignRequired = TRUE then
+
+             eSignSucceefull = Display_eSignWindow(entityName,strApprovalRoles,strApprovalRoles,selectedStatus)
+
+             if eSignSucceefull = TRUE then
+               if not currentesignrole =""  then
+                 role = currentesignrole
+               end if
+
+               Display_ApprovalWindow = "trueø"& selectedStatus & "ø" & role
+               Exit Function
+             else
+
+               Display_ApprovalWindow = "false" & "ø" & "" & "ø" & ""
+               Exit Function
+             end if
+
+           else'
+
+             if isalreadysigned ="Yes" Then
+               Display_ApprovalWindow = "" & "ø" & "" & "ø" & ""
+               Exit Function
+             else
+               Display_ApprovalWindow = "" & "ø" & selectedStatus & "ø" & ""
+
+               Exit Function
+             end if
+
+             Exit Function
+           end if
+
+         else
+
+           x = 0
+           objIE.Document.GetElementById("OK").Value = 0
+     end if
+
+    Exit DO
+  end if
+Loop
+
+loop
+
+     objIE.Quit
+     Set objIE = Nothing
+
+   On Error Goto 0
+
+End Function
+
+
+'=====================================================
+' Display_eSignWindow
+'
+' DESCRIPTION
+'   This is the commom method called by ALM  when a user is attempting to Sign the Approval for Req/Test/Test lab/Defect/Run Modules
+' INPUT : Type of Entity (Req/Test/Test lab/Defect/Run Modules), Role, nof of roles assigned to used based on entity
+
+' OUTPUT
+' Boolean - Returns True if the Signature is True
+'=====================================================
+
+
+
+
+Function Display_eSignWindow(entity, parameter,strApprovalRoles,strApprovalStatus)
+
+      arrApprovalRoles = Split(strApprovalRoles,"" & Chr(246)& "")
+      rolesparam=""
+ ' loop to check for multiple Approval roles if the user has to Display in ESignwindow, Currently Role Control is hided
+        for i=0 to ubound(arrApprovalRoles)
+
+            IF CheckCurrentUserExistsInGroup(TRIM(arrApprovalRoles(i))) = TRUE THEN
+                 IF LEN(TRIM(rolesparam)) = 0 THEN
+
+                    rolesparam = "<option value= '" & arrApprovalRoles(i) & "'>" & arrApprovalRoles(i) & "</option>"
+
+                 ELSE
+
+                  rolesparam = rolesparam & "<option value= '" & arrApprovalRoles(i) & "'>" & arrApprovalRoles(i) & "</option>"
+
+                 END IF
+            END IF
+        Next
+        Display_eSignWindow = false
+        Dim WScript1
+       if entity = "END_RUN" Then
+          strApprovalStatus = "End Run"
+       end if
+    'this code to make ESign Window run for 2 seconds late to enter the uSername and Password do that user will not feel delay while entering Username and Pwd
+        seconds = 1
+        strCmd = "%COMSPEC% /C (PING -n " & ( seconds   ) & " 127.0.0.1 >NUL 2>&1 || PING -n " & seconds & " ::1 >NUL 2>&1)"
+        Set WScript1 = CreateObject("WScript.Shell")
+
+         Dim objIE
+         Set objIE = CreateObject( "InternetExplorer.Application" )
+          Dim WScr
+          Set WScr = CreateObject("WScript.Shell")
+
+         set screen = ObjIE.Parent
+         w = screen.width
+         h = screen.height
+         objIE.Navigate "about:blank"
+
+         objIE.Document.Title = "ALM eSignature"
+         objIE.AddressBar = False
+         objIE.MenuBar = False
+         objIE.ToolBar        = False
+         objIE.Resizable      = False
+         objIE.StatusBar      = False
+
+
+         strHTML = ""
+         strServerUrl = TDConnection.ServerName
+         arrPath = Split(strServerUrl, "/qcbin/")
+
+         sImagePath = ""
+         ON Error Resume Next
+         IF ( UBound(arrPath) > 0 ) THEN
+             sImagePath = arrPath(0) & "/qcbin/images/eSignImage.png"
+         END IF
+         On Error GoTo 0
+        '<tr style='display: none;'> addded by MResult on July 13,2021 for password field to hide password in approval screen
+        objIE.Document.Body.InnerHTML = "<html><head><style> #UserName{font-family:arial;font-size:13px;}</style></head><body onfocusin='VBScript:tFocus.Value=0' onfocusout='VBScript:tFocus.Value=1'><table  style='width:100%; font-size:13px ;' cellpadding='0'  cellspacing='0'><tr><td " _
+         & " valign='top'><img src='" & sImagePath & "' height='65px' width='100%'/></td></tr><tr><td>" _
+         & " <table style='width:100%;table-layout:fixed; font-size:13px; font-family:arial; ' cellpadding='0'  cellspacing='10'>" _
+         & "<tr><td align='right' style='width:25%'>User name : </td><td align='left' valign='left' style='width:75%;'>" _
+         & "<input type='text' style='width:250px' id='UserName' onKeydown='VBScript:OK.Value=event.keyCode' onkeyup='javascript:if(event.keyCode==13){document.getElementById('Password').focus();}' onfocusin='VBScript:tFocus.Value=0' onfocusout='VBScript:tFocus.Value=1'/>"_
+         & "</td></tr>"_
+         & "<tr style='display: none;'><td align='right' >Password : </td><td align='left' valign='left' >" _
+         & "<input type='password' style='width:250px' id='Password' onKeydown='VBScript:OK.Value=event.keyCode' onkeyup='javascript:if(event.keyCode==13){document.getElementById('OK').value=1;}' onfocusin='VBScript:tFocus.Value=0' onfocusout='VBScript:tFocus.Value=1'/>"_
+         & "</td></tr>" _
+         & "<tr><td align='right' >Meaning : </td><td align='left' valign='left' ><input type='text' style='width:250px' id='Meaning' readonly= true Value ='" + strApprovalStatus + "'>"_
+         & "</td></tr>"_
+         & "<tr><td colspan='4' style='padding-right:10px;'  align='right' valign='bottom'><select ID='ddlParam' name='ddlParam' style='display:none;'><span style='font-size:9pt; '>  " + rolesparam +" <span></select><input type='submit' tabindex ='1' id='btnOK' value='OK' OnClick='VBScript:OK.Value=1' "_
+         & "onfocusin='VBScript:tFocus.Value=0' onfocusout='VBScript:tFocus.Value=1' style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#fff,#ddd); width:75px; height:25px;'></input>"_
+         & "&nbsp;<input type='submit' tabindex ='2' value='Cancel' OnClick='VBScript:Cancel.value=1' onfocusin='VBScript:tFocus.Value=0' onfocusout='VBScript:tFocus.Value=1' style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#fff,#ddd); width:75px; height:25px;'></input>" _
+         & "<INPUT TYPE='hidden' ID='OK' NAME='OK' VALUE='0' /><INPUT TYPE='hidden' ID='Cancel' NAME='Cancel' VALUE='0'/><INPUT TYPE='hidden' ID='tFocus' NAME='tFocus' VALUE='1'/><INPUT TYPE='hidden' ID='PWD' NAME='PWD' VALUE='0'/>" _
+         & "</td></tr></table></td></tr></table></Body><html>"
+
+        objIE.Width  = 400
+        objIE.Height  = 250
+        'objIE.Document.Body.Style.BackgroundColor = "#F2F1F3"
+        objIE.Document.Body.Style.BackgroundColor = "#FFFFFF"
+        objIE.Document.Body.Style.overflow = "hidden"
+        objIE.Document.GetElementById("ddlParam").style.visibility="hidden"
+
+         With objIE.Document.ParentWindow.Screen
+
+            objIE.Left = (.availWidth  - objIE.Width ) \ 2
+            objIE.Top  = (.availHeight - objIE.Height) \ 2
+         End With
+         top = objIE.Top
+         lft = objIE.Left
+         if CLng(lft) > 550 then
+           objIE.Left = 550
+         end if
+
+         if CLng(top) > 275 then
+            objIE.Top = 275
+         end if
+         objIE.Visible = 1
+
+         objIE.ExecWB OLECMDID_OPTICAL_ZOOM, OLECMDEXECOPT_DONTPROMPTUSER, CLng(intZoomLevel), vbNull
+         objIE.document.parentwindow.Focus
+         objIE.Document.GetElementById("btnOK").Focus
+
+         x = 0
+         objIE.Document.GetElementById("UserName").Value = TDConnection.UserName
+         'objIE.Document.GetElementById("UserName").Disabled = True 'Added by MResult on Nov 11th, 2021 to avoid impersonsanation issue on approval screen
+         currentesignrole=""
+         Dim Pwd:Pwd = 0
+         Dim Cancel:Cancel = 0
+         Dim OK:OK = 0
+
+
+
+                 Do While (Trim(objIE.Document.GetElementById("OK").Value) = 0 or Trim(objIE.Document.GetElementById("Cancel").Value) = 0 or Trim(objIE.Document.GetElementById("PWD").Value) = 0)
+
+                          On Error Resume Next
+
+                          Pwd = Trim(objIE.Document.GetElementById("PWD").Value)
+                          Cancel = Trim(objIE.Document.GetElementById("Cancel").Value)
+                          OK = Trim(objIE.Document.GetElementById("OK").Value)
+                          ' Added to fix the latency in ESignature Password Popup
+                          CreateObject("WScript.Shell").Run "%COMSPEC% /c ping 127.0.0.1 -n " _
+                          & 1, 0, True
+
+                          If Err Then
+                            objIE.Quit
+                            Set objIE = Nothing
+                            Exit Function
+
+                         elseif(Pwd = 1) then
+
+
+                           objIE.Document.GetElementById("PWD").Value  = 0
+                           objIE.document.parentwindow.focus
+                           objIE.Document.GetElementById("btnOK").Focus
+                          elseif(Cancel = 1) then
+                                 objIE.Quit
+                                 Set objIE = Nothing
+                                 Exit Function
+                          elseif((OK = 1) or (OK = 13)) then
+
+                                 sUserName = objIE.Document.GetElementById("UserName").Value
+                                 sPassword= objIE.Document.GetElementById("Password").Value
+                                 currentesignrole = objIE.Document.GetElementById("ddlParam").Value
+                                 Set obj_TDConn = CreateObject("TDApiOle80.TDConnection")
+                                 obj_TDConn.InitConnectionEx TDConnection.ServerName
+                                 obj_TDConn.login sUserName, sPassword
+
+                                 'Added by MResult on Nov 11th, 2021 to avoid impersonsanation issue on approval screen
+                                 if sUserName <> TDConnection.UserName Then
+                                 MsgBox "Valid credentials required to make this change" , 48 , "Authorization Issue - Change Denied"  'Commented by MResult on July 19th,2021
+                                      objIE.Quit
+                                     Set objIE = Nothing
+                                    Exit Function
+                                  End If
+
+                                 Set dlg = CreateObject("eSignature.ESignatureClass")
+                                 returnVal = dlg.UserAuthenticate(TDConnection.UserName, TDConnection.ServerURL, TDConnection.DomainName, TDConnection.ProjectName)
+                                 if InStr(1,returnVal, "success",0) = 1 and obj_TDConn.LoggedIn and (objIE.Document.GetElementById("UserName").Value = TDConnection.UserName) then
+                                     obj_TDConn.Logout
+                                     Display_eSignWindow = TRUE
+                                     obj_TDConn = Nothing
+                                     Exit DO
+                                  else
+                                     MsgBox "Valid credentials required to make this change" , 48 , "Authorization Issue - Change Denied"  'Commented by MResult on July 19th,2021
+                                      objIE.Quit
+                                     Set objIE = Nothing
+                                    Exit Function
+                                  End If
+
+                         End if
+                    If Trim(objIE.Document.GetElementById("tFocus").Value) = 1 then
+                       WScr.AppActivate "ALM eSignature"
+                   ''''Commented the following lines to keep ESign window on top.
+                   ' else
+                      'WScript1.Run strCmd, 0, 1
+
+                    end if
+                    On Error Goto 0
+                 Loop
+
+
+    objIE.Quit
+    Set objIE = Nothing
+    Set WScript1 = Nothing
+
+End Function
+'=====================================================
+' Display_eSignWindow
+'=====================================================
+'=====================================================
+' Display_eSignWindow
+'=====================================================
+
+
+Function CheckCurrentUserExistsInGroup(groupName)
+
+  CheckCurrentUserExistsInGroup = false
+  IF User.IsInGroup(TRIM(groupName)) then
+    CheckCurrentUserExistsInGroup = true
+  END IF
+
+End Function
+
+Function GetDateTime()
+od = now()
+    set oShell = CreateObject("WScript.Shell")
+    atb = "HKEY_LOCAL_MACHINE\System\CurrentControlSet\" &_
+        "Control\TimeZoneInformation\ActiveTimeBias"
+    offsetMin = oShell.RegRead(atb)
+    nd = dateadd("n", offsetMin, od)
+
+    GetDateTime =nd
+END FUNCTION
+
+Function GetCurrentRole(strApprovalRoles, signatureText)
+
+  arrApprovalRoles = Split(strApprovalRoles,"¢")
+  GetCurrentRole = ""
+
+  strUserRoles = ""
+  for i=0 to ubound( arrApprovalRoles)
+
+    IF CheckCurrentUserExistsInGroup(TRIM(arrApprovalRoles(i))) = TRUE THEN
+
+      IF LEN(TRIM(strUserRoles)) = 0 THEN
+        strUserRoles = arrApprovalRoles(i)
+      ELSE
+        strUserRoles = strUserRoles & "¢" & arrApprovalRoles(i)
+      END IF
+
+    END IF
+
+  Next
+
+  IF LEN(TRIM( strUserRoles)) > 0 THEN
+
+    arrUserRoles = Split(strUserRoles,"¢" )
+
+    for i=0 to ubound(arrUserRoles)
+
+      bExists = CheckCurrentUserAlreadyApproved(arrUserRoles(i), signatureText)
+
+      IF bExists  = false THEN
+        GetCurrentRole =arrUserRoles(i) & "ö" &  FALSE
+      ELSE
+        GetCurrentRole =arrUserRoles(i)  & "ö" &  TRUE
+        EXIT FUNCTION
+      END IF
+
+    next
+
+  END IF
+
+END FUNCTION
+
+
+'=====================================================
+' CheckCurrentUserAlreadyApproved(role, SignatureText)
+'
+' DESCRIPTION
+' This is the common method called by ALM  to check whether the user is Already Signed the entity with the other role Only Req/Defects Module are using it
+' INPUT : roles, SignatureText
+
+' OUTPUT
+' Boolean - Returns True the user already Signed the Entity
+'=====================================================
+Function CheckCurrentUserAlreadyApproved(currentRole, signatureText)
+CheckCurrentUserAlreadyApproved = false
+on Error Resume Next
+
+IF( TRIM(currentRole) <> "" ) THEN
+
+     if (inStr(signatureText,"(" & TDConnection.UserName & ")") > 0)  then
+       iPos = inStr(signatureText,  "(" & TDConnection.UserName & ")")
+
+       sSubString1 = mid(signatureText, iPos, len(signatureText))
+       sSubString2 = mid(sSubString1, 1, inStr(sSubString1, "Trigger")-1)
+       arr= Split(sSubString2, "Meaning")
+
+      if UCASE(TRIM(currentRole)) <> UCASE( TRIM(Replace(arr(1),":",""))) THEN
+              CheckCurrentUserAlreadyApproved = TRUE
+      elseif UCASE(TRIM(currentRole)) = UCASE( TRIM(Replace(arr(1),":",""))) THEN
+              CheckCurrentUserAlreadyApproved = TRUE
+
+       END IF
+
+
+    end if
+END IF
+END Function
+
+Function GetCurrentRolesTestPlan(strApprovalRoles, signatureText)
+
+  arrApprovalRoles = Split(strApprovalRoles,"ø")
+  GetCurrentRolesTestPlan = ""
+
+  strUserRoles = ""
+  for i=0 to ubound(arrApprovalRoles)
+    IF CheckCurrentUserExistsInGroup(TRIM(arrApprovalRoles(i))) = TRUE THEN
+      IF LEN(TRIM(strUserRoles)) = 0 THEN
+        strUserRoles = arrApprovalRoles(i)
+      ELSE
+        strUserRoles = strUserRoles & "¢" & arrApprovalRoles(i)
+      END IF
+    END IF
+  Next
+
+  IF(LEN(TRIM(strUserRoles)) > 0) THEN
+    arrUserRoles = Split(strUserRoles,"¢" )
+    for i=0 to ubound(arrUserRoles)
+      bExists = CheckCurrentUserAlreadyApprovedTestPlan(arrUserRoles(i), signatureText)
+      IF bExists  = false THEN
+        GetCurrentRolesTestPlan =arrUserRoles(i) & "ö" &  FALSE
+      ELSE
+        GetCurrentRolesTestPlan =arrUserRoles(i)  & "ö" &  TRUE
+        EXIT FUNCTION
+      END IF
+    next
+  END IF
+
+END FUNCTION
+
+
+Function CheckCurrentUserAlreadyApprovedTestPlan(currentRole, signatureText)
+ On Error resume next
+  CheckCurrentUserAlreadyApprovedTestPlan = false
+
+  IF TRIM(currentRole) <> "" THEN
+    if (inStr(signatureText, "(" & TDConnection.UserName & ")") > 0)  then
+      iPos = inStr(signatureText,  "(" & TDConnection.UserName & ")")
+      sSubString1 = mid(signatureText, iPos, len(signatureText))
+      sSubString2 = mid(sSubString1, 1, inStr(sSubString1, "Trigger")-1)
+      arr = Split(sSubString2, "Meaning")
+      if UCASE(TRIM(currentRole)) <> UCASE( TRIM(Replace(arr(1),":",""))) THEN
+        CheckCurrentUserAlreadyApprovedTestPlan = TRUE
+      elseif UCASE(TRIM(currentRole)) = UCASE( TRIM(Replace(arr(1),":",""))) THEN
+        CheckCurrentUserAlreadyApprovedTestPlan = TRUE
+      END IF
+    end if
+  END IF
+
+END Function
+
+Function GetCurrentUserRoles()
+
+  currentUserRoles = ""
+  IF CheckCurrentUserExistsInGroup(Group_TDAdmin) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_TDAdmin
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_TDAdmin
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_ProjectLead) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_ProjectLead
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_ProjectLead
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_RSA) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_RSA
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_RSA
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_RSL) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_RSL
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_RSL
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_RSV) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_RSV
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_RSV
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_SO) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_SO
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_SO
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_Validation) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_Validation
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_Validation
+    END IF
+  END IF
+
+
+  IF CheckCurrentUserExistsInGroup(Group_TestAuthor) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_TestAuthor
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_TestAuthor
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_TestPlanLead) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_TestPlanLead
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_TestPlanLead
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_VQ_Manager) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_VQ_Manager
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_VQ_Manager
+    END IF
+  END IF
+
+
+  IF CheckCurrentUserExistsInGroup(Group_TestSetAuthor) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_TestSetAuthor
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_TestSetAuthor
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_Tester) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_Tester
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_Tester
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_TestLabLead) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_TestLabLead
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_TestLabLead
+    END IF
+  END IF
+
+
+  IF CheckCurrentUserExistsInGroup(Group_DL) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_DL
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_DL
+    END IF
+  END IF
+
+  IF CheckCurrentUserExistsInGroup(Group_DR) THEN
+    IF( TRIM(currentUserRoles) = "" ) THEN
+      currentUserRoles = Group_DR
+    ELSE
+      currentUserRoles = currentUserRoles & "ø" & Group_DR
+    END IF
+  END IF
+
+  GetCurrentUserRoles = currentUserRoles
+
+End Function
+
+'================================================================================================
+'                        Select_ApprovalType Function
+'================================================================================================
+
+Function Display_BulkApprovalWindow(strHTMLs,CurrentApprovalStatus,entityname,role,eSignRequired)
+
+  Display_BulkApprovalWindow =""
+
+  Dim objIE
+  Set objIE = CreateObject( "InternetExplorer.Application" )
+  set screen = ObjIE.Parent
+  w = screen.width
+  h = screen.height
+  objIE.Navigate "about:blank"
+  objIE.Document.Title = "Bulk Approval"
+  objIE.AddressBar = False
+  objIE.MenuBar = False
+  objIE.ToolBar        = False
+  objIE.Resizable      = False
+  objIE.StatusBar      = False
+  objIE.Width          = 800
+  objIE.Document.Body.Style.BackgroundColor = "#F2F1F3"
+
+        windowHeight =  500
+        if( iCount > 1) then
+          windowHeight = windowHeight + (iCount * 2)
+        end if
+
+        if( windowHeight  > 820 )  then
+            windowHeight = 820
+        end if
+        objIE.Height = windowHeight
+        objIE.Document.Body.InnerHTML =" <p style='text-align: left; font-family: arial; font-size: 12px; font-weight: Normal;line-height:10px;padding-left:20px;'>Click on Select All checkbox to select all entities </p>" _
+         & "<div align='left' style='overflow:auto; padding: 10px; margin:2px; background:#fff; border: 1px solid #ddd; box-shadow: -1px -1px 2px 0px #888;" _
+         & " -webkit-box-shadow: -1px -1px 2px 0px #888;-moz-box-shadow: -1px -1px 2px 0px #888;-o-box-shadow: -1px -1px 2px 0px #888; min-height: 275px; max-height:275px;"_
+         & " background-color:white; font-family:arial; font-size:13px'>"_
+         & " <span style='text-align: left; font-family: arial; font-size: 12px; font-weight: Normal;'><span style='padding-left:20px'><input type='checkbox' id='chkAll' name='chkSelectAll' value='0' OnClick='VBScript:chkAll.Value=1' />"_
+         & "<b>Select All</b></span>" _
+         & "<div id='rbOption'  align='left !important'>" & strHTMLs & "</div></span></div>" _
+         & "<div align='left' style='overflow:auto; padding: 2px; margin:10px; background:transparent; border: 1px solid #ddd; box-shadow: -1px -1px 2px 0px #888;" _
+         & " -webkit-box-shadow: -1px -1px 2px 0px #888;-moz-box-shadow: -1px -1px 2px 0px #888;-o-box-shadow: -1px -1px 2px 0px #888; min-height:75px;"_
+         & " font-family:arial; font-size:13px' id='reason'>" _
+         & "<Label id='selectedreason' style='font-size:12px ;font-weight:Normal; width:100px; height:25px;' name='selectedreason'>" _
+         & "</div>" _
+         & "<div style='float:right; padding-right:10px;font-family: arial; font-size: 12px;overflow:auto'> " _
+         & "<Label id='lblnoofids' style='font-size:12px ;font-weight:Normal; width:100px; height:25px;'> " & NoofEntiesCanBeSelected & " can be changed. </Label>&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;" _
+         & "<input type='submit' tabindex ='1' id ='btnOK' value='Change Status' OnClick='VBScript:OK.Value=1' style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#ddd,#fff); width:85px; height:25px;'/> " _
+         & "<INPUT TYPE='hidden' ID='OK' NAME='OK' VALUE='0' />"_
+         & "<input type='submit' tabindex ='2' value='Cancel' OnClick='VBScript:Cancel.Value=1' style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#ddd,#fff); width:85px; height:25px;' />" _
+         & "<INPUT TYPE='hidden' ID='Cancel' NAME='Cancel' VALUE='0'/><INPUT TYPE='hidden' ID='Reqidclick' NAME='Reqidclick' VALUE='0'/><INPUT TYPE='hidden' ID='chkclick' VALUE='0' />" _
+         & "</div>"
+
+
+  With objIE.Document.ParentWindow.Screen
+    objIE.Left = (.availWidth  - objIE.Width ) \ 2
+    objIE.Top  = (.availHeight - objIE.Height) \ 2
+  End With
+
+  objIE.Document.Body.Style.overflow = "auto"
+  objIE.Visible = 1
+  objIE.ExecWB OLECMDID_OPTICAL_ZOOM, OLECMDEXECOPT_DONTPROMPTUSER, CLng(intZoomLevel), vbNull
+  objIE.document.parentwindow.focus
+  objIE.Document.GetElementById("btnOK").Focus
+   cuurole = GetSelectedRole(CurrentApprovalStatus)
+  x = 0
+
+  Do While x = 0
+             ' Wait till the OK button has been clicked
+             On Error Resume Next
+
+             Do While (Trim(objIE.Document.GetElementById("OK").Value) = 0 or Trim(objIE.Document.GetElementById("Cancel").Value) = 0)
+
+                  If Err Then
+                    objIE.Quit
+                    Set objIE = Nothing
+                    Exit Function
+                  elseif Trim(objIE.Document.GetElementById("Cancel").Value) = 1 then
+                     x = 1
+                     objIE.Quit
+                     Set objIE = Nothing
+                     Exit Function
+                  elseif Trim(objIE.Document.GetElementById("Reqidclick").Value) <> 0 and Trim(objIE.Document.GetElementById("Reqidclick").Value) <> -1 then
+                         x = 0
+                         clkval= Trim(objIE.Document.GetElementById("Reqidclick").Value)
+
+                         if  clkval <> "-1" then
+                               idval =   "reasontext" &  clkval
+                               objIE.Document.GetElementById("selectedreason").InnerText =   objIE.Document.GetElementById(idval).Value
+                         else
+                             objIE.Document.GetElementById("selectedreason").InnerText =   ""
+                         end if
+
+                          objIE.Document.GetElementById("Reqidclick").Value = 0
+                          objIE.document.parentwindow.Focus
+                          objIE.Document.GetElementById("btnOK").Focus
+                  elseif Trim(objIE.Document.GetElementById("chkclick").Value) <> 0 and Trim(objIE.Document.GetElementById("chkclick").Value) <> -1 then
+                         x = 0
+                          objIE.Document.GetElementById("chkclick").Value = 0
+                          objIE.document.parentwindow.Focus
+                          objIE.Document.GetElementById("btnOK").Focus
+               elseif Trim(objIE.Document.GetElementById("chkAll").Value) = 1 then
+
+                         x = 0
+                         objIE.Document.GetElementById("chkAll").Value = 0
+
+                            for each rb in objIE.Document.GetElementsByName("chkGroup")
+
+                                     if rb.Disabled=false then
+                                        rb.checked = objIE.Document.GetElementById("chkAll").checked
+                                     end if
+                            Next
+
+                        objIE.document.parentwindow.Focus
+                        objIE.Document.GetElementById("btnOK").Focus
+                  elseif Trim(objIE.Document.GetElementById("OK").Value) = 1 then
+
+                        selectedItems = ""
+                              for each rb in objIE.Document.GetElementsByName("chkGroup")
+
+                                      if(rb.checked = true) then
+
+                                         IF TRIM(selectedItems) = "" THEN
+                                            selectedItems =  rb.value  &  ","
+                                         ELSE
+                                          selectedItems = selectedItems &  rb.value & ","
+                                        END IF
+                                      end if
+                               Next
+
+
+                            If Trim(selectedItems) <>""  Then
+                                          Display_BulkApprovalWindow = selectedItems
+                                          objIE.Quit
+                                          Set objIE = Nothing
+
+
+                               if CurrentApprovalStatus =  ApprovalStat_ReqDraft Or CurrentApprovalStatus = ApprovalStat_ReqRoutingForApproval Then
+
+                                          Display_BulkApprovalWindow = "false" & "" & Chr(248)& "" & selectedItems & "" & Chr(248)& "" & ""
+
+                               else
+
+                                     if(eSignRequired = TRUE) then
+
+                                        eSignSucceefull = Display_eSignWindow(entityName, cuurole,cuurole,CurrentApprovalStatus)
+                                          IF(eSignSucceefull = TRUE) then
+                                               Display_BulkApprovalWindow = "true" & Chr(248)& ""& selectedItems & "" & Chr(248)& "" & cuurole
+                                          ELSE
+                                               Display_BulkApprovalWindow = "false" & "" & Chr(248)& "" & "" & "" & Chr(248)& "" & ""
+                                          end if
+                                     else
+                                        Display_BulkApprovalWindow = "" & "" & Chr(248)& "" & selectedItems & "" & Chr(248)& "" & ""
+                                     end if
+                               end if
+
+                              x = 1
+                             Exit Function
+
+              else
+                 objIE.Visible = 0
+                 MsgBox "Please select at least one entity in the Bulk Status Change window." , 48, "Operation Prevented"
+                 objIE.Visible = 1
+                 x = 0
+                 objIE.Document.GetElementsByName("OK").Value = 0
+                 objIE.document.parentwindow.focus
+
+            End If
+                    ' Exit DO
+       End if
+             Loop
+            On Error Goto 0
+       loop
+
+      objIE.Quit
+      Set objIE = Nothing
+
+    On Error Goto 0
+End Function
+
+'==============================================================================================
+  ' Bulk Approval Procedure
+'==============================================================================================
+Function BulkApprovalProcedure(CurrentApprovalStatus,EntityID,role,EntityName,BaseRole)
+
+        TotalValidEntities = ""
+        if EntityName = "REQ" Then
+          Set commonFactory = TDConnection.ReqFactory
+        elseif EntityName = "TEST" Then
+          Set commonFactory = TDConnection.TestFactory
+        end if
+
+
+
+      Set EntityObj = commonFactory.Item(EntityID)
+      role = GetSelectedRole(CurrentApprovalStatus)
+
+    if UCASE(CurrentApprovalStatus)<> UCASE(ApprovalStat_ReqDraft) and UCASE(CurrentApprovalStatus) <> UCASE(ApprovalStat_ReqRoutingForApproval) Then
+      isDoneApprovalOnce = CheckCurrentUserAlreadyApprovedTestPlan(TRIM(role),TRIM(EntityObj.Field(GetDBFieldName(UDF_Signatures,EntityName))))
+    end if
+                   if (EntityName = "REQ") Then
+                      CheckoutCheckinstat= CheckoutCheckinCheck(EntityObj.Id)
+                       FieldAuthor = "RQ_REQ_AUTHOR"
+                       StrSelectedReqStat = Req_Fields.Field(UD_ApprovalStatusF).Value
+                        IsCalltotestpaased = "Yes"
+                    elseif (EntityName = "TEST") Then
+                      CheckoutCheckinstat= CheckoutCheckinCheckTest(EntityObj.Id)
+                       FieldAuthor = "TS_RESPONSIBLE"
+                       StrSelectedReqStat = Test_Fields.Field(UD_ApprovalStatusF).Value
+                        IsCalltotestpaased = "Yes"
+                        IsCalltotestStat = GetCallToTestStatus(EntityObj.Id)
+                        if CurrentApprovalStatus = ApprovalStat_ReqRoutingForApproval Then
+                           If IsCalltotestStat = "No" Then
+                                   IsCalltotestpaased = "No"
+                           End If
+                        End if
+                    end if
+'==============================================================================================================================================
+'Commented By bhavya for the ticket SD00227773 on 11/22/2016
+ 'If UCASE(EntityObj.Field(FieldAuthor)) = UCASE(TDConnection.UserName) and UCASE(CurrentApprovalStatus) <> UCASE(ApprovalStat_ReqDraft) and _
+ ' UCASE(CurrentApprovalStatus) <> UCASE(ApprovalStat_ReqRoutingForApproval) Then
+     ' IsAuthorValidated = "No"
+
+ 'else
+      IsAuthorValidated = "Yes"
+ 'End if
+'==============================================================================================================================================
+
+IF( isDoneApprovalOnce = false) and CheckoutCheckinstat = "Yes"  and IsAuthorValidated = "Yes" and IsCalltotestpaased = "Yes" THEN
+        IsApprovalallowed = CheckBulkApprovalCondition(TRIM(EntityObj.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName))),BaseRole,EntityObj,EntityName)
+
+       If  Instr(IsApprovalallowed,CurrentApprovalStatus) > 0 Then
+        if instr(TRIM(EntityObj.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName))),"Reject") > 0 AND role <> ""   Then 'ADDED BY MRESULT ON 1st NOV 2020 TO FIX APPROVER ISSUE
+            rb = True
+          ELSE
+           rb = false
+        End If 'TILL HERE
+       else
+             rb = True
+        end if
+ Else
+
+     if CheckoutCheckinstat  <> "Yes" Then
+        rb = "No" & "" & Chr(248)& "" & "Make sure entity is checked in."
+     elseIf  isDoneApprovalOnce = true Then
+        rb =  "No" & "" & Chr(248)& "" & "User cannot approve the same enitity more than Once."
+     elseif IsAuthorValidated = "No" Then
+       rb =  "No" &  "" & Chr(248)& "" & "You are listed as an author/designer. An author/designer cannot approve/reject their own work."
+     elseif IsCalltotestpaased = "No" Then
+       rb =  "No" &  "" & Chr(248)& "" & "One or more called tests are not approved. A test with un-approved Call-To steps cannot be approved."
+     else
+        rb = True
+     End if
+end if
+
+
+ if rb = True Then
+       rb =  "No" & "" & Chr(248)& "" & "The User ID/Role does not have permission to change the approval status"
+ end if
+ if rb = false Then
+           rb = "Yes" & "" & Chr(248)& "" & "Current Approval Status is :" & "" & EntityObj.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) & "" & VbNewLine & "Current Pending is : "&  "" &  CurrentApprovalStatus & ""
+
+ End if
+BulkApprovalProcedure = rb
+
+End Function
+
+
+Function Template_Attachment_CanPost(Attachment)
+  'Use ActiveModule and ActiveDialogName to get
+  'the current context.
+  On Error Resume Next
+
+  'call Attachment_CanPost(Attachment)
+  Template_Attachment_CanPost = Template_DefaultRes
+  On Error GoTo 0
+End Function
+Function FindchildNode(psFolderID)
+
+ Dim sql:  sql=""
+
+ Set voTSFolder = TDConnection.TestSetTreeManager.NodeByID(psFolderID)
+ sql = sql & "SELECT '" &  voTSFolder.Name & "' As  Folder_Name,'" &  voTSFolder.NodeID & "' As Folder_ID ,'" & voTSFolder.path & "' As FolderPath From CYCL_FOLD"
+ Set Subnodelist = voTSFolder.SubNodes
+
+   for each voTSFolderChild in Subnodelist
+
+        Childsql=  Childsql & GetAllTSNodesReverse(voTSFolderChild.NodeID)
+        Sqlquery = sql & Childsql
+  Next
+ FindchildNode = Sqlquery
+End Function
+
+ Function GetAllTSNodesReverse(psTSFolderID)
+   Set voTSFolder = TDConnection.TestSetTreeManager.Nodebyid(psTSFolderID)
+
+    Set Subnodelist = voTSFolder.SubNodes
+    GetAllTSNodesReverse = GetAllTSNodesReverse &  " union SELECT '" &  voTSFolder.Name & "' As  Folder_Name,'" &  voTSFolder.NodeID & "' As Folder_ID ,'" & voTSFolder.path & "' As FolderPath From CYCL_FOLD"
+
+        for each voTSFolderChild in Subnodelist
+           GetAllTSNodesReverse(voTSFolderChild.NodeID)
+       Next
+
+ end Function
+
+Function ActionExecuted(actionname)
+  IF (UCASE(ActionName) = UCASE("Runs.RunDetails")) THEN
+    gTrFields.SetupFormLayout(kNo)
+
+  ElSEIF (UCASE(ActionName) = UCASE("RunSteps.Details")) THEN
+    If ActiveModule = "Test Lab" Or ActiveModule = "Test Runs" Then
+      Call Template_TestLab_Step_MoveTo
+    End If
+
+  ElSEIF ActiveModule = "ManualRun" THEN
+    If UCASE(ActionName) = UCASE("StepsView.Attachments") Or UCASE(ActionName) = UCASE("StepsView.LinkedDefects") or _
+       UCASE(ActionName) = UCASE("CampactStepView.StepAttachments") Or UCASE(ActionName) = UCASE("CampactStepView.LinkedDefects") or _
+       UCASE(ActionName) = UCASE("StepsView.StepAttachments")  Then
+       Call RefreshSteps(tfromTestrunText)
+    elseIf UCASE(ActionName) = UCASE("RunView.RunAttachments") or UCASE(ActionName) = UCASE("RunView.LinkedDefects") Then
+      gTrFields.SetupFormLayout(kNo)
+    End if
+
+  End if
+
+end function
+
+'=====================================================
+' DeleteCondition("HIST_REQ","RQ_REQ_ID","10","RQ_USER_TEMPLATE_10")
+'
+' DESCRIPTION
+' This method called by ALM to check Audit log for any Signature for the Entities if any entry in the Sugnature Fields then it will not allow
+' INPUT :"TableName",ColumnID,EntityID,ValidationFieldName
+' OUTPUT : Yes Or No
+'=====================================================
+
+Function DeleteCondition(TableName,ColumnID,EntityID,ValidationFieldName)
+
+On Error Resume Next
+ Set objCommand = TDConnection.Command
+  objCommand.CommandText = "SELECT * FROM " & TableName & " where " & ColumnID & " = " & EntityID & " and (" & ValidationFieldName & " Is not Null)"
+
+  Set objRecordSet = objCommand.Execute
+
+  if objRecordSet.RecordCount > 0 Then
+    DeleteCondition = "No"
+  else
+    DeleteCondition = "Yes"
+  end if
+
+End Function 'DeleteCondition
+
+'===============================================================================================================
+ ' Template_Attachment_FieldCanChange : Validating Attachment Description
+'========================================================================================================================
+ Function Template_Attachment_FieldCanChange(FieldName, NewValue)
+   On Error Resume Next
+
+  isValidattahment =  ValidateAttachmnetField
+  if  isValidattahment = "No" Then
+      Template_Attachment_FieldCanChange = False
+      Actions.Action("Attachment.Refresh").Excecute
+      MsgBox "The current Approval Status does not allow edit attachment description. ",48, "Operation Prevented"
+  else
+    Template_Attachment_FieldCanChange = True
+  end if
+
+ End Function
+
+'===============================================================================================================
+ ' Function Validating Attachment Description
+'========================================================================================================================
+ Function ValidateAttachmnetField
+
+ ValidateAttachmnetField = "Yes"
+ On Error Resume Next
+
+  if  ActiveModule = "Requirements" Then
+    if CheckCurrentUserExistsInGroup(Group_RA) = False Then
+             Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly = True
+              ValidateAttachmnetField = "No"
+             exit Function
+     elseif Req_Fields.Field(UD_ApprovalStatusF).Value <> ApprovalStat_ReqDraft Then
+           Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly = True
+           ValidateAttachmnetField = "No"
+            exit Function
+     end if
+  end if
+
+   if  ActiveModule = "Test Plan" Then
+    if CheckCurrentUserExistsInGroup(Group_TestAuthor) = False Then
+             Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly = True
+              ValidateAttachmnetField = "No"
+             exit Function
+     elseif Test_Fields.Field(UD_ApprovalStatusF).Value <> ApprovalStat_ReqDraft Then
+           Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly = True
+           ValidateAttachmnetField = "No"
+            exit Function
+     end if
+  end if
+
+  if  ActiveModule = "Test Lab" Then
+
+  if bTestSetFolderSelected_ = True Then
+     if CheckCurrentUserExistsInGroup(Group_TestLabLead) = False Then
+             Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly = True
+              ValidateAttachmnetField = "No"
+             exit Function
+     end if
+  end if
+
+
+    if  ActiveDialogName = "TestSetTests Details" Then
+      if TestSet_Fields.Field(UD_ApprovalStatusF).Value <> ApprovalStat_ReqDraft Then
+           Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly = True
+           ValidateAttachmnetField = "No"
+      elseif CheckCurrentUserExistsInGroup(Group_TestLabLead) = false and CheckCurrentUserExistsInGroup(Group_Tester) = false Then
+             Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly = True
+             ValidateAttachmnetField = "No"
+      end if
+
+    elseif ActiveDialogName = "Step Details" Or ActiveDialogName = "Run Step Details" or ActiveDialogName = "Run Details" Then
+         IF RUN_Fields.Field(UD_ApprovalStatusF).Value <> ApprovalStat_ReqDraft Then
+              Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly= True
+               ValidateAttachmnetField = "No"
+         elseif (CheckCurrentUserExistsInGroup(Group_Tester)= False) Then
+              Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly= True
+               ValidateAttachmnetField = "No"
+         end if
+    else
+          IF TestSet_Fields.Field(UD_ApprovalStatusF).Value <> ApprovalStat_ReqDraft Then
+              Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly= True
+               ValidateAttachmnetField = "No"
+          elseif CheckCurrentUserExistsInGroup(Group_TestLabLead) = false Then
+             Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly = True
+              ValidateAttachmnetField = "No"
+          end if
+       end if
+
+end iF
+ if  ActiveModule = "Test Runs" Then
+
+     IF RUN_Fields.Field(UD_ApprovalStatusF).Value <> ApprovalStat_ReqDraft Then
+       Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly= True
+        ValidateAttachmnetField = "No"
+     elseif (CheckCurrentUserExistsInGroup(Group_Tester)= False) Then
+       Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly= True
+        ValidateAttachmnetField = "No"
+     End if
+    if ActiveDialogName = "Step Details" Or ActiveDialogName = "Run Step Details" Or ActiveDialogName = "Run Details" Then
+         IF RUN_Fields.Field(UD_ApprovalStatusF).Value <> ApprovalStat_ReqDraft Then
+              Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly= True
+               ValidateAttachmnetField = "No"
+         elseif (CheckCurrentUserExistsInGroup(Group_Tester)= False) Then
+              Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly= True
+               ValidateAttachmnetField = "No"
+         end if
+    end if
+
+end iF
+
+ if  ActiveModule = "Defects" Then
+           if  bCurrentBugID = "" Then
+               bCurrentBugID = Bug_Fields.Field("BG_BUG_ID").Value
+           end if
+
+           Set Obug = TDConnection.BugFactory.Item(bCurrentBugID)
+           sApprovalStatusFieldName = GetBugFieldName(UD_ApprovalStatusF)
+
+             if (UCase(Obug.Field(sApprovalStatusFieldName))= UCASE(ApprovalStat_DefectAssigned) or _
+                UCase(Obug.Field(sApprovalStatusFieldName))= UCASE(ApprovalStat_DefectFixApplied) Or _
+                UCase(Obug.Field(sApprovalStatusFieldName))= UCASE(ApprovalStat_DefectFixPassed) Or _
+                UCase(Obug.Field(sApprovalStatusFieldName))= UCASE(ApprovalStat_DefectFixFailed)) and _
+                (CheckCurrentUserExistsInGroup(GROUP_DR) or CheckCurrentUserExistsInGroup(GROUP_DM)) Then
+
+                ValidateAttachmnetField = "Yes"
+
+            elseif (UCase(Obug.Field(sApprovalStatusFieldName))= UCASE(ApprovalStat_DefectAssigned) or _
+                UCase(Obug.Field(sApprovalStatusFieldName))= UCASE(ApprovalStat_DefectFixApplied) Or _
+                UCase(Obug.Field(sApprovalStatusFieldName))= UCASE(ApprovalStat_DefectFixPassed) Or _
+                UCase(Obug.Field(sApprovalStatusFieldName))= UCASE(ApprovalStat_DefectFixFailed)) Then
+
+                ValidateAttachmnetField = "Yes"
+
+              elseif(UCase(Obug.Field(sApprovalStatusFieldName))= UCASE(ApprovalStat_DefectNew)) Then
+
+                 ValidateAttachmnetField = "Yes"
+
+              else
+                       Attachment_Fields.Field("CR_DESCRIPTION").IsReadOnly= True
+                       ValidateAttachmnetField = "No"
+
+             end if
+  end if
+
+End Function
+
+Function Template_Attachment_MoveTo
+
+On Error Resume Next
+     isValidattahment =  ValidateAttachmnetField
+  if  isValidattahment = "No" Then
+      Actions.Action("Attachment.Refresh").Excecute
+  end if
+ On Error GoTo 0
+End Function
+
+Function Common_GetUpcomingApprovalStatus(prevStatus,BaseRole,Entity,EntityName)
+
+ On Error Resume Next
+
+
+ upcomingStatuses = ""
+ ingroup =""
+ arrRequiredApprovals = split(Entity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)), ",")
+
+  if UCASE(prevStatus) = UCASE(ApprovalStat_ReqDraft) and CheckCurrentUserExistsInGroup(BaseRole)=true then
+
+    upcomingStatuses = ApprovalStat_ReqRoutingForApproval
+    ingroup= BaseRole
+
+  elseif UCASE(TRim(prevStatus)) = UCASE(ApprovalStat_Approved) and EntityName <> "RUN" then
+
+    if CheckCurrentUserExistsInGroup(BaseRole)=true then
+           upcomingStatuses = ApprovalStat_Draft
+           ingroup= BaseRole
+    end if
+  elseif instr(UCASE(prevStatus),"REJECTED") > 1   then
+     if (CheckCurrentUserExistsInGroup(BaseRole)) then
+       upcomingStatuses = ApprovalStat_ReqDraft
+       ingroup= BaseRole
+      end if
+      For each group in arrRequiredApprovals
+        if User.IsInGroup(group) then
+         IF  prevStatus = group & " Rejected" Then
+
+                        if upcomingStatuses = "" then
+                         ingroup = group
+                         'upcomingStatuses =   "Approved - (" & group & ")"   'Commented by MResult on Feb 16th, 2022 to fix Rejection workflow rework issue
+                       else
+                         ingroup = ingroup & "ø" & group
+                         'upcomingStatuses = upcomingStatuses & "ø" &  "Approved - (" & group & ")"   'Commented by MResult on Feb 16th, 2022 to fix Rejection workflow rework issue
+                       end if
+           End IF
+        end if
+      Next
+
+  else
+
+    upcomingStatuses = ""
+    ingroup = ""
+
+    if (CheckCurrentUserExistsInGroup(BaseRole) and (Entity.Field(GetDBFieldName(UDF_CurrentApproval,EntityName)) = "")) and EntityName <> "RUN" then
+       upcomingStatuses = ApprovalStat_ReqDraft
+       ingroup= BaseRole
+    end if
+
+ if UCASE(prevStatus) = UCASE(ApprovalStat_ReqRoutingForApproval)  then
+      if (CheckCurrentUserExistsInGroup(BaseRole)) and Len(Entity.Field(GetDBFieldName(UDF_CurrentApproval,EntityName))) = 0 then
+       upcomingStatuses = ApprovalStat_ReqDraft
+       ingroup= BaseRole
+      end if
+      For each group in arrRequiredApprovals
+        if User.IsInGroup(group) then
+          ingroup = group
+          if upcomingStatuses = "" then
+            ingroup = group
+            upcomingStatuses =   "Approved - (" & group & ")" & "ø" & group & " Rejected"
+          else
+            ingroup = ingroup & "ø" & group
+            upcomingStatuses = upcomingStatuses & "ø" &  "Approved - (" & group & ")" & "ø" & group & " Rejected"
+          end if
+        end if
+      Next
+    end if
+  end if
+
+
+
+  if TRIM(upcomingStatuses) = "" THEN
+    Common_GetUpcomingApprovalStatus = ""
+  else
+    Common_GetUpcomingApprovalStatus = ingroup & "ö" &  upcomingStatuses
+  end if
+
+End Function
+
+Function UpdateApprovalGroups(objEntity,CurrentApprovalStatus,EntityName,Author,RejectionReason,FieldApprovalSMELevel,FieldQAApprovalLevel)
+  On Error Resume Next
+
+   if isbulkapproval = "Yes" AND (reqbulkindexval<=0) then
+     ConfigUreLevels = GetEditParameterValue(FieldApprovalSMELevel)
+  elseif isbulkapproval = "No" then
+     ConfigUreLevels = GetEditParameterValue(FieldApprovalSMELevel)
+  End if
+   'Added by Mresult on Apr 27th 2020 to set default vaue for SME approvers
+   If ConfigUreLevels = "" Then
+     if (isbulkapproval = "Yes" AND (reqbulkindexval<=0)) or isbulkapproval = "No" then
+         If  EntityName = "RUN" Then
+             ConfigUreLevels= DefaultRunApprovalsRequired
+         else
+             ConfigUreLevels=DefaultApprovalsRequired
+         End if
+     End if
+   END if
+    'till here
+  'Added by chandra on feb 04th 2020 to resolve dynamic pop-up issue
+  ' If FieldApprovalSMELevel =  "RequirementsSME" AND ConfigUreLevels = "" Then
+   '   ConfigUreLevels=DefaultApprovalsRequired
+   ' End if
+    'till here
+
+   If  ConfigUreLevels <> "" and EntityName <> "BUG" Then
+        ApprovalLevels = ConfigUreLevels
+        QArequiredY = objEntity.Field(GetDBFieldName("QA Required",EntityName)) 'added by MResult on June 29
+        checkBugIdTest = objEntity.Field(GetDBFieldName(UDF_ReqType,EntityName))
+        if (CurrentApprovalStatus = ApprovalStat_RoutingForApproval  AND EntityName = "REQ" AND isbulkapproval="Yes" AND (checkBugIdTest= "GxP" OR checkBugIdTest= "Non-GxP")) Then
+         if (reqbulkindexval<=0) Then    'Added to get the count value when a user does Bulk Approvals in Requirement module
+            if  checkBugIdTest = "GxP"   then
+                ReqWorkflowStatus= Replace(ApprovalLevels,"Validation,","")
+                ReqWorkflowStatus= Replace(ReqWorkflowStatus,",Validation","") 'Added to resolve Validation displaying twice in the dynamic Approvers window
+                SelectableStatus =split(ReqWorkflowStatus,",") 'To get values dynamically from project parameter list
+                for each group in SelectableStatus
+                    Final_Status = Final_Status & group & "ø"
+                    Next
+                strUserSelectableStatus = Final_Status & "None"
+                strMsg = "*QA & Validation are default selected for type GxP"
+            elseif  checkBugIdTest = "Non-GxP" AND QArequiredY="Y"    then   'Added by MResult on June 29 to display message for QARequired value Y
+                    SelectableStatus =split(ApprovalLevels,",")
+                for each group in SelectableStatus
+                    Final_Status = Final_Status & group & "ø"
+                    Next
+               Final_ReqStatus = Left(Final_Status, Len(Final_Status) - 1)
+                strUserSelectableStatus = Final_ReqStatus
+                strMsg="*QA is default for this Requirement" 'till here
+            else
+             SelectableStatus =split(ApprovalLevels,",") 'To get values dynamically from project parameter list
+                for each group in SelectableStatus
+                    Final_Status = Final_Status & group & "ø"
+                    Next
+                Final_ReqStatus = Left(Final_Status, Len(Final_Status) - 1)
+                strUserSelectableStatus = Final_ReqStatus
+                strMsg=""
+            End if
+
+            ApprovalLevels  = Display_ReqUserApproverSelectionWindow(strUserSelectableStatus, strMsg, checkBugIdTest)
+            ConfigUreLevels = ApprovalLevels
+         End if
+            If  ApprovalLevels = "" Then
+                Exit Function ' Check that before this ntg is updated in db
+            End if
+         End if
+          QArequiredY = objEntity.Field(GetDBFieldName("QA Required",EntityName)) 'added by MResult on June 29
+          if (CurrentApprovalStatus = ApprovalStat_RoutingForApproval  AND EntityName = "REQ" AND isbulkapproval="No" AND (checkBugIdTest= "GxP" OR checkBugIdTest= "Non-GxP")) Then
+            if  checkBugIdTest = "GxP"   then
+                ReqWorkflowStatus= Replace(ApprovalLevels,"Validation,","")
+                ReqWorkflowStatus= Replace(ReqWorkflowStatus,",Validation","")
+                SelectableStatus =split(ReqWorkflowStatus,",") 'To get values dynamically from project parameter list
+                for each group in SelectableStatus
+                    Final_Status = Final_Status & group & "ø"
+                    Next
+                strUserSelectableStatus = Final_Status & "None"
+                strMsg = "*QA & Validation are default selected for type GxP"
+            elseif  checkBugIdTest = "Non-GxP" AND QArequiredY="Y"    then   'Added by MResult on June 29 to display message for QARequired value Y
+                    SelectableStatus =split(ApprovalLevels,",")
+                for each group in SelectableStatus
+                    Final_Status = Final_Status & group & "ø"
+                    Next
+               Final_ReqStatus = Left(Final_Status, Len(Final_Status) - 1)
+                strUserSelectableStatus = Final_ReqStatus
+                strMsg="*QA is default for this Requirement" 'till here
+            else
+                 SelectableStatus =split(ApprovalLevels,",") 'To get values dynamically from project parameter list
+                for each group in SelectableStatus
+                    Final_Status = Final_Status & group & "ø"
+                    Next
+                Final_ReqStatus = Left(Final_Status, Len(Final_Status) - 1)
+                strUserSelectableStatus = Final_ReqStatus
+                strMsg=""
+            End if
+
+
+            ApprovalLevels  = Display_ReqUserApproverSelectionWindow(strUserSelectableStatus, strMsg, checkBugIdTest)
+            If  ApprovalLevels = "" Then
+             Exit Function ' Check that before this ntg is updated in db
+            End if
+
+         End if
+  else
+      IF (isbulkapproval = "Yes" AND ConfigUreLevels = "") then
+          Exit Function
+      End IF
+      IF EntityName = "RUN" Then
+        ApprovalLevels = "Reviewer"
+      ELSEIF EntityName = "BUG" Then
+        'ApprovalLevels = "QA"
+
+
+        checkBugIdTest = objEntity.Field(GetDBFieldName(UDF_DefectType,EntityName))
+        if (CurrentApprovalStatus = ApprovalStat_RoutingForPreApproval AND (checkBugIdTest =DefectType_Two OR checkBugIdTest ="Type 3")) then
+              if checkBugIdTest ="Type 3" then
+
+                strUserSelectableStatus = "BusinessøTechnicaløSystem OwnerøNone"
+
+                strMsg = "*QA & Validation are default selected for Type 3 Defects"
+              else
+                strUserSelectableStatus = "BusinessøTechnicaløValidationøSystem Owner"
+
+                strMsg=""
+              End if
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              ApprovalLevels  = Display_UserApproverSelectionWindow(strUserSelectableStatus, strMsg, checkBugIdTest)
+
+
+              If  ApprovalLevels = "" Then
+                  Exit Function ' Check that before this ntg is updated in db
+              End if
+
+        else
+          ApprovalLevels = DefaultApprovalsRequired
+        End if
+
+      else
+        ApprovalLevels = DefaultApprovalsRequired
+
+
+  End if
+  end iF
+
+
+
+  If RejectionReason <> "" Then
+      objEntity.Field(GetDBFieldName(UDF_RejectionReason,EntityName))  = objEntity.Field(GetDBFieldName(UDF_RejectionReason,EntityName))  & vbNewLine & vbcr & RejectionReason
+  End if
+
+  If objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_Approved and CurrentApprovalStatus = ApprovalStat_ReqDraft Then
+
+
+             If Len(objEntity.Field(GetDBFieldName("Revision Number",EntityName))) = 0 Then
+                   revFieldValue = 0
+             else
+                 revFieldValue = objEntity.Field(GetDBFieldName("Revision Number",EntityName))
+             end if
+             objEntity.Field(GetDBFieldName("Revision Number",EntityName))  =  revFieldValue + 1
+             objEntity.Field(GetDBFieldName(UDF_RejectionReason,EntityName))= ""
+             objEntity.Field(GetDBFieldName("Signatures",EntityName))= ""
+   End IF
+   If CurrentApprovalStatus = ApprovalStat_ReqRoutingForApproval and objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_ReqDraft Then
+
+              If Len(objEntity.Field(GetDBFieldName(UDF_RejectionReason,EntityName))) > 0 Then
+                      objEntity.Field(GetDBFieldName(UDF_RejectionReason,EntityName)) = ""
+              end if
+     End IF '<< Check need to add this, reset jejection reason for assigned ?
+
+   If instr(CurrentApprovalStatus,"Approve") > 0 OR (EntityName = "BUG" AND CurrentApprovalStatus =ApprovalStat_RoutingForPostApproval) then
+
+              arrRequiredApprovals = split(objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)), ",")
+              role = Split(CurrentApprovalStatus, "(")(UBound(Split(CurrentApprovalStatus, "(")))
+              role = Replace(role, ")", "")
+              CurrentSigned = ""
+              CArole = ""
+              RArole = ""
+              CA = objEntity.Field(GetDBFieldName(UDF_CurrentApproval,EntityName))
+              'Added by MResult on 01st Nov,2020 to fix 'Rejected' status remains even after approval
+              IF  objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) <> "" Then
+              objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_ReqRoutingForApproval
+              END IF ' Till here
+
+              For each group in arrRequiredApprovals
+
+                if (role = group) then
+                   If instr(CA,group) = 0 then
+                       if CArole = "" Then
+                          CArole = group
+                       else
+                           CArole = CArole & "," & group
+                       end if
+                   end if
+
+                else
+                     If instr(CArole,group) = 0 and instr(CA,group) = 0 then
+                        if RArole = "" Then
+                           RArole = group
+                        else
+                            RArole = RArole & "," & group
+                        end if
+                     end if
+                end if
+
+              Next
+              'If CA <> "" Then
+              If CA <> "" AND CArole <> "" Then
+                   CArole = CA & "," & CArole
+              elseif CA <> "" AND CArole = "" Then
+                    CArole = CA
+              end if
+              objEntity.Field(GetDBFieldName(UDF_CurrentApproval,EntityName)) = CArole
+              objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = RArole
+
+              if (RArole = "") and (CArole <> "") then
+                if EntityName = "BUG" Then
+                  'objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_ClosedApproved
+                  bugFieldCurrentApprovalStatus = objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName))
+                             if ((bugFieldCurrentApprovalStatus = ApprovalStat_RoutingForPreApproval) OR _
+                              (instr(CurrentApprovalStatus,"Pre Approved - (") > 0))   then
+                              ' this in case i click approve but existsing status is rejected, which i am appproving. Clean this up
+                              objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_PreApproved
+
+                             elseif bugFieldCurrentApprovalStatus = ApprovalStat_PreApproved then
+                                 objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_DefectOpenInProgress
+
+                             elseif bugFieldCurrentApprovalStatus = ApprovalStat_DefectOpenInProgress then
+                                 objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_RoutingForPostApproval
+                                 objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = Group_DefectPostApprover 'Group_Reviewer
+
+                             elseif bugFieldCurrentApprovalStatus = ApprovalStat_RoutingForPostApproval OR _
+                             CurrentApprovalStatus =("Post Approved - (" & Group_DefectPostApprover & ")") then '(Reviewer)" then
+                             '??? Keep a flag instead
+                                 objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_ClosedApproved
+                                 objEntity.Field(GetDBFieldName(UDF_ApprovalDate,EntityName)) = CurrentSignDateTime
+                                 CurrentSignDateTime = ""
+                             'else
+                               ' objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_PreApproved
+                             End if
+                 else
+                 objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = "Approved"
+                 objEntity.Field(GetDBFieldName(UDF_ApprovalDate,EntityName)) = CurrentSignDateTime
+                 CurrentSignDateTime = ""
+                End if
+              else
+                'objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_ReqRoutingForApproval
+                     if EntityName = "BUG" and CurrentApprovalStatus = ApprovalStat_RoutingForPostApproval Then  '<<<
+                        objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_RoutingForPostApproval
+                        objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = Group_DefectPostApprover
+                        elseif EntityName = "BUG" then ' <<<
+                        objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = ApprovalStat_RoutingForPreApproval
+                     End If
+              end if
+
+   elseif instr(CurrentApprovalStatus,"Reject") > 0 then
+              if EntityName = "BUG" then
+              objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = CurrentApprovalStatus
+              'objEntity.Field(GetDBFieldName(UDF_Signatures,EntityName)) = ""
+              '24 April Incorrect change - it should be when status is Assigned. But Open In Progress should not delete
+              else
+              role=split(CurrentApprovalStatus," ")(0)
+              objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName)) = role & " Rejected"
+               If EntityName = "RUN" Then
+                 objEntity.Field(GetDBFieldName(UDF_ReviewStatus,EntityName))= ""
+              End if
+              end if
+
+   else
+              if CurrentApprovalStatus = ApprovalStat_DefectOpenInProgress then
+                 objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = "" 'Reset Reviewer Role assigned
+                 objEntity.Field(GetDBFieldName(UDF_ApprovalDate,EntityName)) = ""
+              End if
+              objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName))  = CurrentApprovalStatus
+
+   end if
+
+   '24 April updated Test
+   if UCASE(CurrentApprovalStatus) = UCASE(ApprovalStat_DefectAssigned) AND (EntityName = "BUG") Then
+      objEntity.Field(GetDBFieldName(UDF_Signatures,EntityName)) = ""
+   End If
+
+   if CurrentApprovalStatus =  ApprovalStat_ReqDraft Then
+              objEntity.Field(GetDBFieldName(UDF_CurrentApproval,EntityName)) = ""
+              objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = ""
+              objEntity.Field(GetDBFieldName(UDF_ApprovalDate,EntityName)) = ""
+              If EntityName <> "RUN" Then
+                  objEntity.Field(GetDBFieldName(UDF_Signatures,EntityName)) = ""
+        else
+                  objEntity.Field(GetDBFieldName(UDF_ReviewStatus,EntityName))= ""      ' Added to set null for review status in bulk test runs
+
+              End if
+
+   'elseif (CurrentApprovalStatus = ApprovalStat_ReqRoutingForApproval Or CurrentApprovalStatus = ApprovalStat_RoutingForQAApproval) and objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = "" then
+   elseif (CurrentApprovalStatus = ApprovalStat_ReqRoutingForApproval Or CurrentApprovalStatus = ApprovalStat_RoutingForPreApproval) and objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = "" then
+
+
+        objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = ApprovalLevels
+
+
+           'if objEntity.Field(GetDBFieldName("QA Required",EntityName)) = "Y" then
+           'Changed earlier comment earlier condition restored - rakshith. Check for QA Required (Requirement, Test) & Defects
+           '07 March 2018 Fix for QA Required field name different for Defects Module : QA_Required = "QA/Validation Required"
+           varQAVAL_Required = objEntity.Field(GetDBFieldName(QA_Required,EntityName)) 'NOTE: Global Variable Used of Defects
+           varQA_Required = objEntity.Field(GetDBFieldName("QA Required",EntityName))
+           if (varQA_Required = "Y") OR (varQAVAL_Required = "Y") then
+
+                if(instr(Trim(ApprovalLevels),"QA") > 0) then
+                else
+                if(( EntityName = "BUG" and checkBugIdTest ="Type 3") OR (EntityName = "REQ" and checkBugIdTest ="GxP")) then
+
+                     if instr(ApprovalLevels,"None") > 0 then
+                        objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = "QA,Validation"
+                        else
+
+                        objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) & ",QA,Validation"
+                        end if
+                      else
+                  'objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName))
+                  '07 March 2018 - Bug Fix added for issue (QA Approval not added for requirements, tests even though QA required set
+                  objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) & ",QA"
+                      End if
+                end if
+
+           else
+                  if instr(objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)), "QA") > 0 then
+                    arrRequiredApprovals = Split(objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)),",")
+                    grouplist = ""
+                    i = 0
+                    For each group in arrRequiredApprovals
+                      if (i>0) then
+                        if group <> "QA" then
+                          grouplist = grouplist & "," & group
+                          i = i + 1
+                        end if
+                      elseif group <> "QA" then
+                        grouplist = group
+                        i = i + 1
+                      end if
+                    Next
+                    objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = grouplist
+                  end if
+           end if
+        objEntity.Field(GetDBFieldName(UDF_RejectionReason,EntityName)) = ""
+
+   elseif UCASE(CurrentApprovalStatus) = UCASE(ApprovalStat_Approved) Or UCASE(CurrentApprovalStatus) = UCASE(ApprovalStat_DefectClosed) _
+          OR UCASE(CurrentApprovalStatus) = UCASE(ApprovalStat_ClosedApproved) then
+          objEntity.Field(GetDBFieldName(UDF_RejectionReason,EntityName)) = ""
+   end if
+
+   objEntity.Post
+   objEntity.Refresh
+
+   if UCASE(objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName))) = UCASE(ApprovalStat_Approved) _
+      OR UCASE(objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName))) = UCASE(ApprovalStat_DefectClosed) _
+      OR UCASE(objEntity.Field(GetDBFieldName(UD_ApprovalStatusF,EntityName))) = UCASE(ApprovalStat_ClosedApproved) then
+       objEntity.Field(GetDBFieldName(UDF_CurrentApproval,EntityName)) = ""
+       objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = ""
+     If EntityName = "RUN" Then
+                  objEntity.Field(GetDBFieldName(UDF_ReviewStatus,EntityName))= ""  'Deployment: Dec 20,2019. Added so that review status become blank when Reviewer changes status from RFA to Reviewer Rejected
+       End if
+       objEntity.Post
+   elseif UCASE(CurrentApprovalStatus) = UCASE(ApprovalStat_DefectAssigned) Or UCASE(CurrentApprovalStatus) = UCASE(ApprovalStat_DefectFixApplied) _
+          OR UCASE(CurrentApprovalStatus) = UCASE(ApprovalStat_DefectFixPassed) OR UCASE(CurrentApprovalStatus) = UCASE(ApprovalStat_DefectFixFailed) Then
+       objEntity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)) = ""
+       objEntity.Field(GetDBFieldName(UDF_CurrentApproval,EntityName)) = ""   '<<<<<<<<<<<<<,
+       objEntity.Post
+   End If
+
+End Function
+
+
+
+Function GetDBFieldName(sFieldLabelName,TableName)
+  GetDBFieldName = ""
+  Dim aField
+  Dim fieldList
+  Dim FieldProp
+
+  Set fieldList = TDConnection.Fields(TableName)
+
+  For Each aField In fieldList
+     Set FieldProp = aField.Property
+
+     If UCASE(FieldProp.UserLabel)=UCASE(sFieldLabelName) Then
+        GetDBFieldName = FieldProp.DBColumnName
+        Exit for
+     end if
+  Next
+
+End Function
+Function GetEditParameterValue(FieldName)
+On Error Resume Next
+maxCount = ""
+IF LEN(TRIM(FieldName))> 0 THEN
+   Set Oreq  =  TDConnection.ReqFactory.Item(0)
+   'Oreq.Refresh    --- Commented on March 24, as signtaure entries are blank ---
+   Valuefield   = gReqUserDefinedActions.GetReqFieldName(FieldName)
+   maxCount = Oreq.Field(Valuefield)
+   'maxCount.Refresh    --- Commented on March 24, as signtaure entries are blank ---
+END IF
+
+IF( LEN(TRIM(maxCount)) = 0) THEN
+    maxCount =""
+END IF
+
+GetEditParameterValue = maxCount
+
+End Function  ' GetEditParameterValue
+
+'======================================================================================
+' Function: FormatESignatureText
+' Description: Common Function to get Esignature Text for all the Modules
+' Input : Current Approval Status , PreviousEsignatureText to concatenate
+' o/p : Formatted ESgnature Text
+'======================================================================================
+
+Function FormatESignatureText(CurrentApprovalStatus,PreviousSignatureText,EntityName)
+On Error Resume Next
+if EntityName = "RUN" Then
+               If esignDatetimeStamp = "" Then
+                    sDate = GetDateTime()
+               else
+                    sDate = esignDatetimeStamp
+               end if
+   CurrentSignDateTime = sDate
+   FormatESignatureText  = vbcr & "Signed by : " & User.Fullname &" ("& TDConnection.Username &")"& " on " & sDate & _
+   " Meaning: End Run" & vbNewLine & vbcr  & PreviousSignatureText
+else
+   sDate = GetDateTime
+   CurrentSignDateTime = sDate
+     FormatESignatureText  = vbcr & "Signed by : " & User.Fullname &" ("& TDConnection.Username &")"& " on " & sDate & _
+   " Meaning: " & CurrentApprovalStatus  &  vbNewLine & vbcr  & PreviousSignatureText
+end if
+  On Error GoTo 0
+End Function ' FormatESignatureText
+
+'=============================================================================
+' GetDateTime ()
+'
+' DESCRIPTION
+' This is the  method called by ALM  to get the datetime Format of Current Zone
+' INPUT : NA
+
+' OUTPUT
+' Boolean - Returns Date time
+'==================================================================================
+Function GetDateTime()
+    od = TDConnection.ServerTime
+    Dim strDateTime, strDate, strTime
+    strDateTime = DateAdd("n", 1, od)
+    strDate = Left(strDateTime, InStr(strDateTime, " ")-1)
+    MTime = FormatDateTime(od, 4)
+    Formatdate= GetFormattedDate(strDate)
+    FTime = Formatdate & " " & Right("0" & Hour(MTime), 2) & ":" & Right("0" & Minute(MTime), 2) & ":" & Right("0" & Second(od), 2)
+    GetDateTime = FTime
+END FUNCTION 'GetDateTime
+
+Function GetFormattedDate(strDate)
+
+  strDay = DatePart("d", strDate)
+  strMonth = DatePart("m", strDate)
+  strYear = DatePart("yyyy", strDate)
+  If strDay < 10 Then
+    strDay = "0" & strDay
+  End If
+  If strMonth < 10 Then
+    strMonth = "0" & strMonth
+  End If
+  GetFormattedDate = strYear & "-" & strMonth & "-" & strDay
+End Function
+
+Function GetSelectedRole(CurrentApprovalStatus)
+GetSelectedRole = ""
+On Error Resume Next
+ If instr(CurrentApprovalStatus,"Approve") > 0 then
+  strrole = Split(CurrentApprovalStatus, "(")(UBound(Split(CurrentApprovalStatus, "(")))
+  strrole = Replace(strrole, ")", "")
+ elseif instr(CurrentApprovalStatus,"Reject") > 0 then
+       StrFinalrole = Replace(CurrentApprovalStatus," Rejected","")
+       strrole = Trim(StrFinalrole)
+ End if
+GetSelectedRole = strrole
+
+End Function
+
+'======================================================================================
+' Function: MultiLineInput
+' Description: Common Function to get Input MultiLine Text for all the Modules
+' Input : Current Approval Status , PreviousEsignatureText to concatenate
+' o/p : Formatted ESgnature Text
+'======================================================================================
+
+Function MultiLineInput(myPrompt,Header,Entity,IsFormatRequired)
+ On Error Resume Next
+ MultiLineInput = ""
+        Dim WScript1
+        Set WScript1 = CreateObject("WScript.Shell")
+        seconds = 2
+        strCmd = "%COMSPEC% /C (PING -n " & ( seconds + 1 ) & " 127.0.0.1 >NUL 2>&1 || PING -n " & seconds & " ::1 >NUL 2>&1)"
+
+         Dim WScr
+         Set WScr = CreateObject("WScript.Shell")
+
+         Dim objIE
+         Set objIE = CreateObject( "InternetExplorer.Application" )
+         set screen = ObjIE.Parent
+         w = screen.width
+         h = screen.height
+         objIE.Navigate "about:blank"
+         objIE.Document.Title = Header
+         objIE.AddressBar = False
+         objIE.MenuBar = False
+         objIE.ToolBar        = False
+         objIE.Resizable      = False
+         objIE.StatusBar      = False
+         strHTML = ""
+
+
+         ON Error Resume Next
+
+
+
+         objIE.Document.Body.InnerHTML  = "<html><head><style> #UserInput{font-family:arial;font-size:13px;}</style></head><body onfocusin='VBScript:tFocus.Value=0' onfocusout='VBScript:tFocus.Value=1'><table style='width:100%; font-size:13px ;font-family:arial;' cellpadding='0'  cellspacing='0'>" _
+         & "<tr><td colspan='2' style='height:25px;' align='left' valign='middle'>" _
+         &  " &nbsp;&nbsp; " & myPrompt & " </td></tr>" _
+         & " <tr><td><table style='width:100%;table-layout:fixed;font-family:arial; ' cellpadding='0' cellspacing = '8'>"_
+         & "<tr><td align='center' style='width:100%;font-family:arial;font-size:13px'><textarea id=UserInput wrap = on cols=80 rows=10  onfocusin='VBScript:tFocus.Value=0' onfocusout='VBScript:tFocus.Value=1'></textarea></td></tr>"_
+         & "<tr><td align='right' valign='bottom' style='padding:5px;'> " _
+         & "<input type='submit' id='btnOK' name='btnOK' value='OK' OnClick='VBScript:OK.Value=1'" _
+         & " style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#fff,#ddd); width:75px; height:25px;' />" _
+         & "&nbsp;<input type='submit' value='Cancel' id='btnCancel' name='btnCancel' OnClick='VBScript:Cancel.Value=1' onfocusin='VBScript:tFocus.Value=0' onfocusout='VBScript:tFocus.Value=1'" _
+         & "style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#fff,#ddd); width:75px; height:25px;' />" _
+         & "<INPUT TYPE='hidden' ID='OK' NAME='OK' VALUE='0' /><INPUT TYPE='hidden' ID='Cancel' NAME='Cancel' VALUE='0'/><INPUT TYPE='hidden' ID='tFocus' NAME='tFocus' VALUE='1'/>" _
+         & "</td></tr></table></td></tr></table></body></html>"
+
+
+         objIE.Width  = 560
+         objIE.Height  = 280
+         'objIE.Document.Body.Style.BackgroundColor = "#F2F1F3"
+          objIE.Document.Body.Style.BackgroundColor = "#FFFFFF"
+         objIE.Document.Body.Style.overflow = "hidden"
+
+
+         With objIE.Document.ParentWindow.Screen
+            objIE.Left = (.availWidth  - objIE.Width ) \ 2
+            objIE.Top  = (.availHeight - objIE.Height) \ 2
+         End With
+          top = objIE.Top
+         lft = objIE.Left
+         if CLng(lft) > 550 then
+           objIE.Left = 550
+         end if
+
+         if CLng(top) > 275 then
+            objIE.Top = 275
+         end if
+        objIE.Visible = 1
+        objIE.ExecWB OLECMDID_OPTICAL_ZOOM, OLECMDEXECOPT_DONTPROMPTUSER, CLng(intZoomLevel), vbNull
+        objIE.document.parentwindow.focus
+         x = 0
+        'objIE.Document.All.btnOK.Disabled= True
+        objIE.Document.GetElementById("btnCancel").Focus
+        Do While x = 0
+
+                 On Error Resume Next
+                 Do While (Trim(objIE.Document.GetElementById("OK").Value) = 0 or Trim(objIE.Document.GetElementById("Cancel").Value) = 0)
+
+                          If Err Then
+                            objIE.Quit
+                            Set objIE = Nothing
+                            Exit Function
+                          elseif (Trim(objIE.Document.GetElementById("Cancel").Value) = 1) then
+                                 Call CallReadOnlyFunction(Entity,"Yes")
+                                 objIE.Quit
+                                 Set objIE = Nothing
+                                 Exit Function
+
+                          elseif (Trim(objIE.Document.GetElementById("OK").Value) = 1)  then
+
+                                 UserInput = objIE.Document.GetElementById("UserInput").Value
+
+                                 If Trim(UserInput) <>""   Then
+                                     x=1
+                                     if IsFormatRequired = "Yes" Then
+                                        MultiLineInput = UserInput & vbNewLine& "["& User.Fullname & " (" & User.Username & "), " & GetDateTime & "]"
+                                     else
+                                         MultiLineInput = UserInput
+                                     End If
+                                else
+                                     x = 0
+                                     objIE.Document.GetElementById("OK").Value  = 0
+                                     objIE.Visible = 0
+                                     MsgBox "Please Enter the InputValue." , 48 , "Input Required - Operation Prevented"
+                                     objIE.Visible = 1
+                                     objIE.document.parentwindow.focus
+                                 End If
+
+                                 Exit DO
+                          End if
+
+                     If Trim(objIE.Document.GetElementById("tFocus").Value) = 1 then
+                        WScr.AppActivate Header
+                        else
+                        WScript1.Run strCmd, 0, 1
+                     end if
+
+                 Loop
+                On Error Goto 0
+     loop
+    objIE.Quit
+    Set objIE = Nothing
+    Set WScript1 = Nothing
+
+ End Function   'MultiLineInput
+
+
+Function getUserNameInESignInRun(ESignText,strStatus)
+On Error Resume Next
+
+getUserNameInESignInRun = "No"
+   IF(ESignText <> "") THEN
+         a=Split(ESignText, "Signed")
+         b=ubound(a)
+         FinaEndEsignName = ""
+           For i=0 to b
+               if(a(i) <> "") then
+                   If InStr(UCASE(a(i)), strStatus) > 0 Then
+                      signText =  a(i)
+                      TempEsignName =   Trim(Mid(signText, InStr(signText, "(") + 1, InStr(signText, ")") - InStr(signText, "(") - 1))
+
+                      if UCASE(TempEsignName) = UCASE(TDConnection.UserName) Then
+                         getUserNameInESignInRun = "Yes"
+                       exit For
+                      end if
+                   End If
+               end if
+           Next
+   END IF
+
+end Function
+
+'======================================================================================
+' Function: SendNotificationOnApprovalStatusChange
+' Description: Common Function to Send an Email if the Approval Status Changed.
+' Input : author, previous ApprovalStatus, Current ApprovalStatus, Object,EntityName,Next reviewer
+' o/p : Send Mail to mentioned in the sendEmailTo
+'======================================================================================
+
+Function SendNotificationOnApprovalStatusChange(author, prevApprovalStatus, CurrentApprovalStatus,objEntity,EntityName,Reviewer)
+On Error Resume Next
+
+sendEmailTo = author
+
+
+   if CurrentApprovalStatus =ApprovalStat_DefectFixApplied Then
+      strComment = ""
+      strSubject = TDConnection.DomainName & "." & TDConnection.ProjectName & " - Defect #" & Bug_Fields.Field("BG_BUG_ID").Value & "- " & Bug_Fields.Field("BG_SUMMARY").Value
+
+   Elseif CurrentApprovalStatus = ApprovalStat_Approved Then
+      strComment = User.FullName & " (" & User.Username & ") has approved this defect."
+      strSubject = "Defect is Approved"
+   Elseif CurrentApprovalStatus = ApprovalStatus_4 Or CurrentApprovalStatus = ApprovalStatus_6  or CurrentApprovalStatus = ApprovalStatus_8 Then
+            strSubject = "Defect" & " was Rejected"
+            strComment = "Rejected by " & User.Username & " - " & User.FullName
+   else
+      strComment = User.FullName & " (" & User.Username & ") has assigned this defect to you. Please review and take appropriate action."
+      strSubject = "Defect Assigned for Review"
+   End if
+
+      IF ( Len(Trim(sendEmailTo)) > 0) then
+
+          objEntity.Mail sendEmailTo, "", 0, strSubject,strComment
+      ENd IF
+
+End Function    'SendNotificationOnApprovalStatusChange
+
+
+Function GetBulkApprovalStatus(BaseRole)
+
+  upcomingStatuses = ""
+  group =""
+
+ if (selectedApprovalType = "GxP")  then
+  ApprovalRoles = "Business,Technical,Validation,QA,System Owner,SME_1,SME_2,SME_3,SME_4,SME_5"
+ elseif (selectedApprovalType = "Non-GxP") then
+  ApprovalRoles = "Business,Technical,Validation,System Owner,SME_1,SME_2,SME_3,SME_4,SME_5"
+ else
+  ApprovalRoles = "Business,Technical,Validation,QA,System Owner,SME_1,SME_2,SME_3,SME_4,SME_5"
+ End if
+  arrRequiredApprovals = split(ApprovalRoles, ",")
+  IF (CheckCurrentUserExistsInGroup(BaseRole)) then
+    upcomingStatuses =  ApprovalStat_ReqRoutingForApproval & "ø" &  ApprovalStat_ReqDraft
+    group= BaseRole
+  end if
+
+   For each group in arrRequiredApprovals
+        if User.IsInGroup(group) then
+          ingroup = group
+          if upcomingStatuses = "" then
+            ingroup = group
+            upcomingStatuses =   "Approved - (" & group & ")" & "ø" & group & " Rejected"
+          else
+            ingroup = ingroup & "ø" & group
+            upcomingStatuses = upcomingStatuses & "ø" &  "Approved - (" & group & ")" & "ø" & group & " Rejected"
+          end if
+        end if
+      Next
+
+
+  IF( TRIM( upcomingStatuses) = "" )THEN
+    GetBulkApprovalStatus = ""
+  ELSE
+    GetBulkApprovalStatus = group & "ö" &  upcomingStatuses
+  END IF
+End Function
+
+
+Function CheckBulkApprovalCondition(prevStatus,BaseRole,Entity,EntityName)
+
+ On Error Resume Next
+
+ upcomingStatuses = ""
+ ingroup =""
+ arrRequiredApprovals = split(Entity.Field(GetDBFieldName(UDF_RequiredApproval,EntityName)), ",")
+
+  if UCASE(prevStatus) = UCASE(ApprovalStat_ReqDraft) and CheckCurrentUserExistsInGroup(BaseRole)=true then
+    upcomingStatuses = ApprovalStat_ReqRoutingForApproval
+  elseif UCASE(TRim(prevStatus)) = UCASE(ApprovalStat_Approved) then
+    if CheckCurrentUserExistsInGroup(BaseRole)=true then
+           upcomingStatuses = ApprovalStat_Draft
+    end if
+  elseif instr(UCASE(prevStatus),"REJECTED") > 1   then
+     if (CheckCurrentUserExistsInGroup(BaseRole)) then
+       upcomingStatuses = ApprovalStat_ReqDraft
+      end if
+      For each group in arrRequiredApprovals
+        if User.IsInGroup(group) then
+         IF  prevStatus = group & " Rejected" Then
+
+                        if upcomingStatuses = "" then
+
+                         upcomingStatuses =   "Approved - (" & group & ")"
+                       else
+
+                         upcomingStatuses = upcomingStatuses & "ø" &  "Approved - (" & group & ")"
+                       end if
+           End IF
+        end if
+      Next
+
+  else
+
+    upcomingStatuses = ""
+    ingroup = ""
+
+    if (CheckCurrentUserExistsInGroup(BaseRole) and (Entity.Field(GetDBFieldName(UDF_CurrentApproval,EntityName)) = ""))  then
+       upcomingStatuses = ApprovalStat_ReqDraft
+
+    end if
+
+if UCASE(prevStatus) = UCASE(ApprovalStat_ReqRoutingForApproval)  then
+      if (CheckCurrentUserExistsInGroup(BaseRole)) and Len(Entity.Field(GetDBFieldName(UDF_CurrentApproval,EntityName))) = 0 then
+       upcomingStatuses = ApprovalStat_ReqDraft
+
+      end if
+      For each group in arrRequiredApprovals
+        if User.IsInGroup(group) then
+          if upcomingStatuses = "" then
+            upcomingStatuses =   "Approved - (" & group & ")" & "ø" & group & " Rejected"
+          else
+            upcomingStatuses = upcomingStatuses & "ø" &  "Approved - (" & group & ")" & "ø" & group & " Rejected"
+          end if
+        end if
+      Next
+    end if
+  end if
+
+
+
+  if TRIM(upcomingStatuses) = "" THEN
+    CheckBulkApprovalCondition = ""
+  else
+    CheckBulkApprovalCondition = upcomingStatuses
+  end if
+
+End Function
+
+
+
+
+'-----------------------
+
+
+Function Display_UserApproverSelectionWindow(strUserSelectableStatus, strMsg,checkBugIdTest)
+
+ On Error Resume Next
+    'Display_UserApproverSelectionWindow = "" & Chr(248)& "" & Chr(248)& ""
+
+  Display_UserApproverSelectionWindow = ""
+    IF(TRIM(strUserSelectableStatus) = "") then
+       Exit FUnction
+    End if
+
+        iCount = 1
+        strHTML = ""
+
+'If loop to check if  there are multiple Approval Status seperated  by a Pi Symbol to be Displayed on Approval Window
+
+    strHTML = "<table id='tblCheck' style='width:100%; font-size:13px ;' cellpadding='0'  cellspacing='0'>"
+         rbcount = 1
+         IF(InStr(strUserSelectableStatus, "" & Chr(248)& "") > 0) then
+            arrStatus = Split(strUserSelectableStatus, "" & Chr(248)& "")
+            iCount = UBound(arrStatus) + 1
+            For each status in arrStatus
+               strHTML = strHTML & "<tr><td align='left' valign='left' style='width:4%; padding-left:6px;'>&nbsp;&nbsp;<input type='checkbox' name='rbGroup' value='" &  status & "'  ID='strb" & rbcount & "' ></input></td>"
+
+               strHTML = strHTML & "<td style='width:95%;padding:3px' align='left'>" & "<Label OnClick='VBScript:rbClick.Value=" & rbcount & "' name ='lblclick' id ='lblclick" & rbcount & "'>" & status & "</Label>"  &  "</td></tr>"
+               rbcount = rbcount + 1
+             Next
+         else
+      strHTML = strHTML + " <tr><td align='left' valign='left' style='width:4%;padding-left:6px;'>&nbsp;&nbsp;<input type='checkbox' name='rbGroup' value='" &  strUserSelectableStatus & "' ID='strb" & rbcount & "'></input></td>"
+      strHTML = strHTML & "<td style='width:95%;padding:3px' align='left'>" & "<Label OnClick='VBScript:rbClick.Value=" & rbcount & "' name ='lblclick' id ='lblclick" & rbcount & "'>" & strUserSelectableStatus & "</Label>"  & "</td></tr>"
+         End if
+
+     if strMsg <> "" then
+     strHTML = strHTML & "<tr><td colspan='2' style='font-size:12px;padding-top:3px'><i>"& strMsg &"</i></td></tr>"
+     End if
+
+       strHTML = strHTML & "</table>"
+
+
+
+    'Design Starts : Creating  Display of Approval Window using IE Object
+
+         Dim objIE
+         Set objIE = CreateObject( "InternetExplorer.Application" )
+         set screen = ObjIE.Parent
+         w = screen.width
+         h = screen.height
+         objIE.Navigate "about:blank"
+         objIE.Document.Title = "Select Approvers"
+         ObjIE.Silent= true
+         objIE.AddressBar = False
+         objIE.MenuBar = False
+         objIE.ToolBar = False
+         objIE.Resizable = False
+         objIE.StatusBar = False
+         objIE.Width = 360
+
+
+         'objIE.Document.Body.Style.BackgroundColor = "#F2F1F3"
+         objIE.Document.Body.Style.BackgroundColor = "#FFFFFF"
+         objIE.Document.Body.InnerHTML = "<table style='width:100%;table-layout:fixed; font-family:arial; ' cellpadding='0' cellspacing = '0'>"_
+         & "<tr><td valign='top' style='padding-top:5px;'>" & strHTML & "</td></tr>" _
+         & "<tr><td align='right' valign='bottom' style='padding-top:10px;'> " _
+         & "<input type='submit' tabindex ='1' id ='btnOK' value='OK' style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#ddd,#fff); width:75px; height:25px;' OnClick='VBScript:OK.Value=1'/><INPUT TYPE='hidden' ID='OK' NAME='OK' VALUE='0' />"_
+         & "&nbsp;<input type='submit' id='btnCancel' tabindex ='2' value='Cancel' style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#ddd,#fff); width:75px; height:25px;' OnClick='VBScript:Cancel.Value=1'/>" _
+         & "<INPUT TYPE='hidden' ID='Cancel' NAME='Cancel' VALUE='0'/>" _
+          & "<INPUT TYPE='hidden' ID='rbClick' NAME='RBCLICK' VALUE='0'/>" _
+         & "</td></tr></table>" 'padding-top:20px changed to 10px by MResult on Nov 17, 2020 to fix design issue
+
+
+
+        if( iCount > 1) and (iCount < 4) then
+            windowHeight =  135
+            windowHeight = windowHeight + (iCount * 12)
+        elseif( iCount >= 4)  then
+            windowHeight =  135
+            windowHeight = windowHeight + (iCount * 18)
+        else
+             windowHeight =  125
+        end if
+
+         objIE.Height = windowHeight
+
+         ' Center the dialog window on the screen
+         With objIE.Document.ParentWindow.Screen
+            objIE.Left = (.availWidth  - objIE.Width ) \ 2
+            objIE.Top  = (.availHeight - objIE.Height) \ 2
+         End With
+
+         top = objIE.Top
+         lft = objIE.Left
+         if CLng(lft) > 600 then
+           objIE.Left = 600
+         end if
+
+         if CLng(top) > 300 then
+            objIE.Top = 300
+         end if
+        objIE.Document.Body.Style.overflow = "hidden"
+        objIE.Visible = 1
+        objIE.Document.GetElementById("btnOK").Disabled = True
+        objIE.ExecWB OLECMDID_OPTICAL_ZOOM, OLECMDEXECOPT_DONTPROMPTUSER, CLng(intZoomLevel), vbNull
+        objIE.document.parentwindow.focus
+        objIE.Document.GetElementById("btnCancel").Focus
+
+
+  x = 0
+  Do While x = 0
+    ' Wait till the OK button has been clicked
+     On Error Resume Next
+     dim getNone
+                 getNone =   objIE.Document.GetElementById("strb")
+     Do While (Trim(objIE.Document.GetElementById("OK").Value) = 0 or Trim(objIE.Document.GetElementById("Cancel").Value) = 0)
+          if (Trim(objIE.Document.GetElementById("rbClick").Value) <> 0) then
+                 objIE.Document.GetElementById("strb" & Trim(objIE.Document.GetElementById("rbClick").Value)).Checked = true
+                 objIE.Document.GetElementById("rbClick").Value = 0
+             end if
+
+           if(iCount > 1) then
+            j=0
+            for each rb in objIE.Document.GetElementsByName("rbGroup").rbGroup
+                  if(rb.checked = true) then
+'if(objIE.Document.All.rbGroup(3).checked = true and (checkBugIdTest ="Type 3" or checkBugIdTest= "GxP" )) then    'Commented MResult
+'objIE.Document.All.rbGroup(0).checked = false
+'objIE.Document.All.rbGroup(1).checked = false
+'objIE.Document.All.rbGroup(2).checked = false
+'objIE.Document.GetElementById("btnOK").Disabled = False
+
+if(objIE.Document.GetElementsByName("rbGroup")(3).checked = true and (checkBugIdTest ="Type 3" or checkBugIdTest= "GxP" )) then
+objIE.Document.GetElementsByName("rbGroup")(0).checked = false
+objIE.Document.GetElementsByName("rbGroup")(1).checked = false
+objIE.Document.GetElementsByName("rbGroup")(2).checked = false
+objIE.Document.GetElementById("btnOK").Disabled = False
+
+                    objIE.Document.GetElementById("btnOK").Focus
+end if
+
+                   objIE.Document.GetElementById("btnOK").Disabled = False
+                    objIE.Document.GetElementById("btnOK").Focus
+                   exit for
+                   end if
+                   j = j+1
+                Next
+
+            else
+
+                if(objIE.Document.GetElementsByName("rbGroup").rbGroup.Checked = true) then
+                  objIE.Document.GetElementById("btnOK").Disabled = False
+                  objIE.Document.GetElementById("btnOK").Focus
+                end if
+            end if
+       if Err Then
+
+         objIE.Quit
+         Set objIE = Nothing
+         Display_UserApproverSelectionWindow =  ""
+         Exit Function
+
+       elseif Trim(objIE.Document.GetElementById("Cancel").Value) = 1 then
+
+         x = 1
+         objIE.Quit
+         Set objIE = Nothing
+         Display_UserApproverSelectionWindow =  ""
+         Exit Function
+
+       elseif Trim(objIE.Document.GetElementById("OK").Value) = 1 then
+
+       selectedStatus = ""
+       i=0
+       eSignRequired = false
+
+         if iCount > 1 then
+           for each rb in objIE.Document.GetElementsByName("rbGroup").rbGroup
+                 if rb.checked = true then
+                    if selectedStatus ="" then
+                   selectedStatus = rb.value
+                   else
+                   selectedStatus = selectedStatus & "," & rb.value
+                   end if
+                   'exit for
+                 end if
+
+           i = i + 1
+           next
+         else
+           if objIE.Document.GetElementsByName("rbGroup").rbGroup.Checked = true then
+           selectedStatus = objIE.Document.GetElementsByName("rbGroup").rbGroup.Value
+           end if
+         end if
+
+    if Trim(selectedStatus) <>""  Then
+
+           x=1
+           objIE.Quit
+           Set objIE = Nothing
+         else
+
+           x = 0
+           objIE.Document.GetElementById("OK").Value = 0
+     end if
+
+    Exit DO
+  end if
+Loop
+
+loop
+
+     objIE.Quit
+     Set objIE = Nothing
+
+   On Error Goto 0
+Display_UserApproverSelectionWindow =  selectedStatus
+End Function
+
+'================================================================================================
+'Function name : Display_ReqUserApproverSelectionWindow
+'Description: Added for Requirements module to display dynamic Approver window for single and bulk approvals
+'Output: Should display statuses picked form project parameter window
+'================================================================================================
+Function Display_ReqUserApproverSelectionWindow(strUserSelectableStatus, strMsg,checkBugIdTest)
+
+ On Error Resume Next
+
+  Display_UserApproverSelectionWindow = ""
+    IF(TRIM(strUserSelectableStatus) = "") then
+       Exit FUnction
+    End if
+        iCount = 1
+        strHTML = ""
+
+'If loop to check if  there are multiple Approval Status seperated  by a Pi Symbol to be Displayed on Approval Window
+
+    strHTML = "<table id='tblCheck' style='width:100%; font-size:13px ;' cellpadding='0'  cellspacing='0'>"
+         rbcount = 1
+         IF(InStr(strUserSelectableStatus, "" & Chr(248)& "") > 0) then
+            arrStatus = Split(strUserSelectableStatus, "" & Chr(248)& "")
+            iCount = UBound(arrStatus) + 1
+            For each status in arrStatus
+               strHTML = strHTML & "<tr><td align='left' valign='left' style='width:4%; padding-left:6px;'>&nbsp;&nbsp;<input type='checkbox' name='rbGroup' value='" &  status & "'  ID='strb" & rbcount & "' ></input></td>"
+
+               strHTML = strHTML & "<td style='width:95%;padding:3px' align='left'>" & "<Label OnClick='VBScript:rbClick.Value=" & rbcount & "' name ='lblclick' id ='lblclick" & rbcount & "'>" & status & "</Label>"  &  "</td></tr>"
+               rbcount = rbcount + 1
+             Next
+         else
+      strHTML = strHTML + " <tr><td align='left' valign='left' style='width:4%;padding-left:6px;'>&nbsp;&nbsp;<input type='checkbox' name='rbGroup' value='" &  strUserSelectableStatus & "' ID='strb" & rbcount & "'></input></td>"
+      strHTML = strHTML & "<td style='width:95%;padding:3px' align='left'>" & "<Label OnClick='VBScript:rbClick.Value=" & rbcount & "' name ='lblclick' id ='lblclick" & rbcount & "'>" & strUserSelectableStatus & "</Label>"  & "</td></tr>"
+         End if
+
+     if strMsg <> "" then
+     strHTML = strHTML & "<tr><td colspan='2' style='font-size:12px;padding-top:3px'><i>"& strMsg &"</i></td></tr>"
+     End if
+
+       strHTML = strHTML & "</table>"
+
+    'Design Starts : Creating  Display of Approval Window using IE Object
+
+         Dim objIE
+         Set objIE = CreateObject( "InternetExplorer.Application" )
+         set screen = ObjIE.Parent
+         w = screen.width
+         h = screen.height
+         objIE.Navigate "about:blank"
+         objIE.Document.Title = "Select Approvers"
+         ObjIE.Silent= true
+         objIE.AddressBar = False
+         objIE.MenuBar = False
+         objIE.ToolBar = False
+         objIE.Resizable = False
+         objIE.StatusBar = False
+         objIE.Width = 360
+
+
+         objIE.Document.Body.Style.BackgroundColor = "#FFFFFF"
+         objIE.Document.Body.InnerHTML = "<table style='width:100%;table-layout:fixed; font-family:arial; ' cellpadding='0' cellspacing = '0'>"_
+         & "<tr><td valign='top' style='padding-top:5px;'>" & strHTML & "</td></tr>" _
+         & "<tr><td align='right' valign='bottom' style='padding-top:10px;'> " _
+         & "<input type='submit' tabindex ='1' id ='btnOK' value='OK' style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#ddd,#fff); width:75px; height:25px;' OnClick='VBScript:OK.Value=1'/><INPUT TYPE='hidden' ID='OK' NAME='OK' VALUE='0' />"_
+         & "&nbsp;<input type='submit' id='btnCancel' tabindex ='2' value='Cancel' style='font-size:10px ;cursor:pointer; font-weight:bold;background: -ms-linear-gradient(#ddd,#fff); width:75px; height:25px;' OnClick='VBScript:Cancel.Value=1'/>" _
+         & "<INPUT TYPE='hidden' ID='Cancel' NAME='Cancel' VALUE='0'/>" _
+          & "<INPUT TYPE='hidden' ID='rbClick' NAME='RBCLICK' VALUE='0'/>" _
+         & "</td></tr></table>"     'padding-top:20px changed to 10px by MResult ON NOV 17TH to fix design issue
+
+
+        if( iCount > 1) and (iCount < 4) then
+            windowHeight =  135
+            windowHeight = windowHeight + (iCount * 12)
+        elseif( iCount >= 4)  then
+            windowHeight =  135
+            windowHeight = windowHeight + (iCount * 18)
+        else
+             windowHeight =  125
+        end if
+        objIE.Height = windowHeight
+
+         ' Center the dialog window on the screen
+         With objIE.Document.ParentWindow.Screen
+            objIE.Left = (.availWidth  - objIE.Width ) \ 2
+            objIE.Top  = (.availHeight - objIE.Height) \ 2
+         End With
+
+         top = objIE.Top
+         lft = objIE.Left
+         if CLng(lft) > 600 then
+           objIE.Left = 600
+         end if
+
+         if CLng(top) > 300 then
+            objIE.Top = 300
+         end if
+        objIE.Document.Body.Style.overflow = "hidden"
+        objIE.Visible = 1
+        objIE.Document.GetElementById("btnOK").Disabled = True
+        objIE.ExecWB OLECMDID_OPTICAL_ZOOM, OLECMDEXECOPT_DONTPROMPTUSER, CLng(intZoomLevel), vbNull
+        objIE.document.parentwindow.focus
+        objIE.Document.GetElementById("btnCancel").Focus
+
+
+        x = 0
+        Do While x = 0
+    ' Wait till the OK button has been clicked
+        On Error Resume Next
+        dim getNone
+        getNone =   objIE.Document.GetElementById("strb")
+        Do While (Trim(objIE.Document.GetElementById("OK").Value) = 0 or Trim(objIE.Document.GetElementById("Cancel").Value) = 0)
+          if (Trim(objIE.Document.GetElementById("rbClick").Value) <> 0) then
+                 objIE.Document.GetElementById("strb" & Trim(objIE.Document.GetElementById("rbClick").Value)).Checked = true
+                 objIE.Document.GetElementById("rbClick").Value = 0
+             end if
+
+           if(iCount > 1) then
+            j=0
+            for each rb in objIE.Document.GetElementsByName("rbGroup").rbGroup
+            if(rb.checked = true) then
+               'if((objIE.Document.All.rbGroup(iCount-1).checked = true) and (checkBugIdTest ="GxP")) then
+                if((objIE.Document.GetElementsByName("rbGroup")(iCount-1).checked = true) and (checkBugIdTest ="GxP")) then
+                   for i=0 to (iCount-2)
+                       'objIE.Document.All.rbGroup(i).checked = false
+                        objIE.Document.GetElementsByName("rbGroup")(i).checked = false     'Dynamic logic to pick values from project parameters
+                   Next
+
+                   objIE.Document.GetElementById("btnOK").Focus
+              end if
+
+               objIE.Document.GetElementById("btnOK").Disabled = False
+               objIE.Document.GetElementById("btnOK").Focus
+               exit for
+               end if
+               j = j+1
+            Next
+            else
+            if(objIE.Document.GetElementsByName("rbGroup").rbGroup.Checked = true) then
+               objIE.Document.GetElementById("btnOK").Disabled = False
+               objIE.Document.GetElementById("btnOK").Focus
+            end if
+          end if
+          if Err Then
+             objIE.Quit
+             Set objIE = Nothing
+             Display_ReqUserApproverSelectionWindow =  ""
+             Exit Function
+
+          elseif Trim(objIE.Document.GetElementById("Cancel").Value) = 1 then
+              x = 1
+              objIE.Quit
+              Set objIE = Nothing
+              Display_ReqUserApproverSelectionWindow =  ""
+              Exit Function
+
+          elseif Trim(objIE.Document.GetElementById("OK").Value) = 1 then
+              selectedStatus = ""
+              i=0
+              eSignRequired = false
+
+              if iCount > 1 then
+                 for each rb in objIE.Document.GetElementsByName("rbGroup").rbGroup
+                 if rb.checked = true then
+                    if selectedStatus ="" then
+                       selectedStatus = rb.value
+                   else
+                       selectedStatus = selectedStatus & "," & rb.value
+                   end if
+                 end if
+
+                 i = i + 1
+                 next
+              else
+              if objIE.Document.GetElementsByName("rbGroup").rbGroup.Checked = true then
+                 selectedStatus = objIE.Document.GetElementsByName("rbGroup").rbGroup.Value
+              end if
+         end if
+
+         if Trim(selectedStatus) <>""  Then
+           x=1
+           objIE.Quit
+           Set objIE = Nothing
+         else
+           x = 0
+           objIE.Document.GetElementsById("OK").Value = 0
+         end if
+
+         Exit DO
+      end if
+    Loop
+
+    loop
+
+    objIE.Quit
+    Set objIE = Nothing
+
+    On Error Goto 0
+    Display_ReqUserApproverSelectionWindow =  selectedStatus
+End Function
